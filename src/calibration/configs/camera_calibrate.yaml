@@ -1,0 +1,2 @@
+input_folder: "./src/calibration/camera_calibration/assets"
+config_path: "./src/calibration/configs/raw/calibration.yaml"

@@ -1,0 +1,6 @@
+compare: false  # compare with the minimap from the following video, if false, just draw a minimap with your message. 
+
+resource_folder_path: "./src/debug_toolbox/minimap/resource"
+
+enemy_color: "red"
+# enemy_color: "blue"

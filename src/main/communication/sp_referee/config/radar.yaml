@@ -1,0 +1,107 @@
+referee: #radar
+  use_image_transmission_link: false
+  read:
+    - 0x0001 # GameStatus
+    - 0x0002 # GameResult
+    - 0x0003 # GameRobotHp
+
+    - 0x0101 # EventData
+    - 0x0102 # ExtSupplyProjectileAction
+    - 0x0104 # RefereeWarning
+    - 0x0105 # DartInfo
+
+    - 0x0201 # RobotStatus
+    - 0x0205 # AirSupportData
+    - 0x0207 # ShootData
+    - 0x0208 # ProjectileAllowance
+    - 0x0209 # Rfid_Status
+    - 0x020C # RadarMarkData
+    - 0x020E # RadarInfo
+
+    - 0x0301 # RobotInteractionData
+    - 0x0302 # CustomRobotData
+
+
+  write:
+    - 0x0301 # RobotInteractionData
+    - 0x0305 # MapRobotData
+
+  ui:
+    mode:
+      # chassis: # chassis mode display
+      #   id: 0x010000
+      #   figure_type: circle
+      #   layer: 0
+      #   color: white
+      #   width: 15
+      #   radius: 40
+      #   start_position: 
+      #   - 400  
+      #   - 700
+      #  context: chassis
+
+      chassis: # chassis mode display
+        id: 0x010000
+        figure_type: string
+        layer: 0
+        color: white
+        width: 2
+        size: 20
+        length: 16
+        start_position: 
+        - 100  
+        - 900
+        context: CHASSIS:NOFOLLOW
+      
+      # gimbal:
+      #   id: 200 # gimbal mode display
+      #   figure_type: string
+      #   layer: 0
+      #   color: white
+      #   width: 2
+      #   size: 20
+      #   length: 16
+      #   start_position: 
+      #   - 100  
+      #   - 720
+      #   context: GIMBAL:
+
+      manipulator:
+        id: 0x040000 # maipulator mode display
+        figure_type: string
+        layer: 0
+        color: white
+        width: 2
+        size: 20
+        length: 17
+        start_position: 
+        - 100  
+        - 870
+        context: MANIPULATOR:JOINT
+      
+    # fixed:
+    #   401:
+    #     figure_type: string
+    #     layer: 0
+    #     color: 8
+    #     width: 10
+    #     start_position: {1500, 700}
+    #     context: pump
+
+    #   410: # left line
+    #     figure_type: line
+    #     layer: 0
+    #     color: 8
+    #     width: 10
+    #     start_position: {560, 0}
+    #     end_position: {760, 450}
+
+    #   411: # right line
+    #     figure_type: line
+    #     layer: 0
+    #     color: 8
+    #     width: 10
+    #     start_position: {1360, 0}
+    #     end_position: {1160, 450}
+
+

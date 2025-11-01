@@ -1,0 +1,7 @@
+use_camera: False
+video_path: "./src/records_2024/video/20240516BO301QL_cut.mp4"
+config_path: "./src/calibration/configs/raw/camera.yaml"
+
+# 重投影误差: 0.1473px
+camera_matrix: [2554.0004081094098, 0, 1515.3684739680807, 0, 2561.0490183481188, 1068.8919154079756, 0, 0, 1]
+distort_coeffs: [-0.075624638780328837, 0.12231293697960384, 0.0018253919826664092, -0.00018031733064470789, 0]

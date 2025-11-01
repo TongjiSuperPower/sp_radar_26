@@ -1,0 +1,2 @@
+config_path: "./src/calibration/configs/raw/camera.yaml"
+output_path: "./src/calibration/camera_calibration/assets"

@@ -1,0 +1,8 @@
+# camera_name: "mindvision"
+# exposure_ms: 3
+# gamma: 0.5
+# vid_pid: "f622:d13a"
+
+camera_name: "hikrobot"
+exposure_ms: 16
+gain: 15

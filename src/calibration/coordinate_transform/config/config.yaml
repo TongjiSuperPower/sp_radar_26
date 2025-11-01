@@ -1,0 +1,29 @@
+tvec_and_rvec_YPR: [0, 0, -0.59, 0, 0, 0]
+
+input: "./src/calibration/coordinate_transform/pcd/RMUC_25_voxel.pcd"
+output: "./src/calibration/coordinate_transform/pcd/RMUC_25_voxel_transform1.pcd"
+
+# 1
+# - Translation: [-0.305, 0.578, -0.265]
+# - Rotation: in Quaternion [-0.003, 0.006, -0.006, 1.000]
+# - Rotation: in RPY (radian) [-0.007, 0.011, -0.013]
+# - Rotation: in RPY (degree) [-0.378, 0.635, -0.747]
+
+
+# inverse - 2
+
+# - Translation: [0.310, -0.575, 0.265]
+# - Rotation: in Quaternion [0.003, -0.006, 0.006, 1.000]
+# - Rotation: in RPY (radian) [0.006, -0.011, 0.013]
+# - Rotation: in RPY (degree) [0.370, -0.639, 0.743]
+
+# new - 2
+# [0.0, -0.0, 0.0, 0.000, 0.005, 0.00]
+
+# 3 修改了YPR
+
+# 4 平移反了
+# tvec_and_rvec_YPR: [0, 0, 0.59, 0, 0, 0]
+
+# 5 
+# tvec_and_rvec_YPR: [0, 0, -0.59, 0, 0, 0]

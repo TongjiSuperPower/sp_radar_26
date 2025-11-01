@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TfBroadcast</class>
+ <widget class="QWidget" name="TfBroadcast">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>239</width>
+    <height>448</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="6" column="1">
+    <widget class="QDoubleSpinBox" name="SpinBox_pitch">
+     <property name="styleSheet">
+      <string notr="true">QSpinBox {
+        border: 1px solid lightgray;
+        border-radius: 3px;
+    }
+
+    QSpinBox::up-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG1);
+    }
+
+    QSpinBox::up-button:pressed {
+        margin-top: 1px;
+    }
+
+    QSpinBox::down-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG2);
+    }
+
+    QSpinBox::down-button:pressed {
+        margin-bottom: 1px;
+    }
+    </string>
+     </property>
+     <property name="minimum">
+      <double>-180.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>180.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QDoubleSpinBox" name="SpinBox_y">
+     <property name="styleSheet">
+      <string notr="true">QSpinBox {
+        border: 1px solid lightgray;
+        border-radius: 3px;
+    }
+
+    QSpinBox::up-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG1);
+    }
+
+    QSpinBox::up-button:pressed {
+        margin-top: 1px;
+    }
+
+    QSpinBox::down-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG2);
+    }
+
+    QSpinBox::down-button:pressed {
+        margin-bottom: 1px;
+    }
+    </string>
+     </property>
+     <property name="minimum">
+      <double>-300.000000000000000</double>
+     </property>
+     <property name="value">
+      <double>0.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QDoubleSpinBox" name="SpinBox_yaw">
+     <property name="styleSheet">
+      <string notr="true">QSpinBox {
+        border: 1px solid lightgray;
+        border-radius: 3px;
+    }
+
+    QSpinBox::up-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG1);
+    }
+
+    QSpinBox::up-button:pressed {
+        margin-top: 1px;
+    }
+
+    QSpinBox::down-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG2);
+    }
+
+    QSpinBox::down-button:pressed {
+        margin-bottom: 1px;
+    }
+    </string>
+     </property>
+     <property name="minimum">
+      <double>-180.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>180.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QDoubleSpinBox" name="SpinBox_z">
+     <property name="styleSheet">
+      <string notr="true">QSpinBox {
+        border: 1px solid lightgray;
+        border-radius: 3px;
+    }
+
+    QSpinBox::up-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG1);
+    }
+
+    QSpinBox::up-button:pressed {
+        margin-top: 1px;
+    }
+
+    QSpinBox::down-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG2);
+    }
+
+    QSpinBox::down-button:pressed {
+        margin-bottom: 1px;
+    }
+    </string>
+     </property>
+     <property name="minimum">
+      <double>-300.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>300.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QDoubleSpinBox" name="SpinBox_x">
+     <property name="styleSheet">
+      <string notr="true">QSpinBox {
+        border: 1px solid lightgray;
+        border-radius: 3px;
+    }
+
+    QSpinBox::up-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG1);
+    }
+
+    QSpinBox::up-button:pressed {
+        margin-top: 1px;
+    }
+
+    QSpinBox::down-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG2);
+    }
+
+    QSpinBox::down-button:pressed {
+        margin-bottom: 1px;
+    }
+    </string>
+     </property>
+     <property name="minimum">
+      <double>-300.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>300.000000000000000</double>
+     </property>
+     <property name="value">
+      <double>0.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QDoubleSpinBox" name="SpinBox_roll">
+     <property name="styleSheet">
+      <string notr="true">QSpinBox {
+        border: 1px solid lightgray;
+        border-radius: 3px;
+    }
+
+    QSpinBox::up-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG1);
+    }
+
+    QSpinBox::up-button:pressed {
+        margin-top: 1px;
+    }
+
+    QSpinBox::down-button {
+        width: 14px;
+        height: 14px;
+        margin: 0px 3px 0px -3px;
+        border-image: url(PATH_TO_IMG2);
+    }
+
+    QSpinBox::down-button:pressed {
+        margin-bottom: 1px;
+    }
+    </string>
+     </property>
+     <property name="minimum">
+      <double>-180.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>180.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>tvec_x /mm</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>tvec_y /mm</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="label_3">
+     <property name="text">
+      <string>tvec_z /mm</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string>yaw /度</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0">
+    <widget class="QLabel" name="label_5">
+     <property name="text">
+      <string>pitch /度</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
+    <widget class="QLabel" name="label_6">
+     <property name="text">
+      <string>roll /度</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

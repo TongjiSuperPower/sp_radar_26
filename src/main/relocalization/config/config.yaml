@@ -1,0 +1,19 @@
+pcd_target_path: "./src/main/relocalization/pcd/RMUC_25_voxel.pcd"
+topic_pointcloud: "/livox/lidar"
+topic_game_status: "/game_status"
+
+use_best_result: false
+use_small_gicp: false
+voxel_grid_size: 0.05
+max_score: 10  # icp 赛场正常匹配得分<0.1
+max_error: 10.0  # small_gicp
+num_neighbors: 4  # small_gicp
+num_threads: 10  # small_gicp
+max_dist_sq: 3.0  # small_gicp
+
+#[tx/m, ty/m, tz/m, yaw/度, pitch/度, roll/度]
+#-------------------------------------attention-----------------------------------------------
+# lidar2map
+init_params: [29, 9.5, 4, 196, -2, -0.0]   # enemy is red
+# init_params: [-1, 5.5,  4, 16, -2, 0.0]   # enemy is blue
+#---------------------------------------------------------------------------------------------
