@@ -52,7 +52,6 @@ int main(int argc, char **argv)
                 timestamp_recorder.record_timestamp();
             }
             detector_manager->detect_once(frame);
-            
             if(if_show_img)
             {
                 cv::resize(frame, frame, cv::Size(1080, 720));
@@ -64,7 +63,8 @@ int main(int argc, char **argv)
                     cv::destroyAllWindows();
                 }
             }
-            frame_index++;
+            frame_index++;endif
+
             std::cout << "now frame " << frame_index << std::endl;
         }
         std::cout << "total frame count: " << frame_index << std::endl;

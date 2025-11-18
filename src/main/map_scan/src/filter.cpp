@@ -42,7 +42,7 @@ public:
         // 订阅livox lidar点云话题
         subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             "livox/lidar", 10,
-            std::bind(&PCDPointCloudFilterNode::pointCloudCallback, this, std::placeholders::_1));
+            std::bind(&PCDPointCloudFilterNode::pointCloudCallback, this, std::placeholders::_1)); //get the message into callback
 
         // 发布过滤后的点云
         publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/livox/filtered_lidar", 10);
@@ -50,7 +50,7 @@ public:
     }
 
 private:
-    geometry_msgs::msg::TransformStamped inverse_transform(
+    geometry_msgs::msg::TransformStamped inverse_transform(    // this is for later where we need to do an inverse transformation
         const geometry_msgs::msg::TransformStamped &transform)
     {
         // 创建逆变换对象
@@ -74,19 +74,19 @@ private:
         return inverse;
     }
 
-    void transformAndVoxelPCD()
+    void transformAndVoxelPCD() 
     {
         if (use_static_scan_)
         {
-            sensor_msgs::msg::PointCloud2::SharedPtr map_msg(new sensor_msgs::msg::PointCloud2());
-            pcl::toROSMsg(*MAP_pcd_cloud_, *map_msg);
-            tf2::doTransform(*map_msg, *map_msg, transform_L2M_);
-            pcl::fromROSMsg(*map_msg, *MAP_pcd_cloud_);
+            sensor_msgs::msg::PointCloud2::SharedPtr map_msg(new sensor_msgs::msg::PointCloud2()); //single use
+            pcl::toROSMsg(*MAP_pcd_cloud_, *map_msg); // to ros msg
+            tf2::doTransform(*map_msg, *map_msg, transform_L2M_); //lidar to map frame 1 sec later
+            pcl::fromROSMsg(*map_msg, *MAP_pcd_cloud_); //back to pcl format
         }
         // 创建k-d树
-        pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
+        pcl::VoxelGrid<pcl::PointXYZ> voxel_filter; 
         voxel_filter.setInputCloud(MAP_pcd_cloud_);
-        voxel_filter.setLeafSize(0.1f, 0.1f, 0.1f); // 设置体素大小
+        voxel_filter.setLeafSize(0.1f, 0.1f, 0.1f); // 设置体素大小 //the filter // lots of points -> less but big points
         voxel_filter.filter(*MAP_pcd_cloud_voxel_);
         kdtree_.setInputCloud(MAP_pcd_cloud_voxel_);
     }
@@ -101,7 +101,7 @@ private:
 
         try
         {   // TODO 检查重定位收敛时间
-            transform_L2M_ = tf_buffer_->lookupTransform(
+            transform_L2M_ = tf_buffer_->lookupTransform(  //for transforming lidar to map frame
                 "map",
                 "lidar_frame",
                 rclcpp::Time(0),
@@ -111,12 +111,12 @@ private:
         {
             RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
         }
-        transform_M2L_ = inverse_transform(transform_L2M_);
-        tf2::doTransform(*msg, *msg, transform_L2M_);
-        pcl::fromROSMsg(*msg, *cloud_in);
-        removeOverlap(cloud_in, cloud_filtered);
-        pcl::toROSMsg(*cloud_filtered, *output_msg);
-        tf2::doTransform(*output_msg, *output_msg, transform_M2L_);
+        transform_M2L_ = inverse_transform(transform_L2M_); 
+        tf2::doTransform(*msg, *msg, transform_L2M_); // first we get the msg into map frame
+        pcl::fromROSMsg(*msg, *cloud_in); // then to point cloud format
+        removeOverlap(cloud_in, cloud_filtered); // then remove the overlap points from cloud_in and add the rest to cloud_filtered
+        pcl::toROSMsg(*cloud_filtered, *output_msg);// to ros
+        tf2::doTransform(*output_msg, *output_msg, transform_M2L_);// again to livox
 
         output_msg->header.frame_id = "livox_frame";
         output_msg->header.stamp.sec = now.seconds();
@@ -129,9 +129,9 @@ private:
     void removeOverlap(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_in,
                        pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_filtered)
     {
-        std::vector<int> point_idx_search;
-        std::vector<float> point_dist_squared;
-        float threshold_distance = 0.18f;
+        std::vector<int> point_idx_search; 
+        std::vector<float> point_dist_squared; //the one we use
+        float threshold_distance = 0.18f; //f for float literal
         int filtered_count = 0;
 
         auto is_point_outside_field = [] (const pcl::PointXYZ& point)  {
@@ -171,13 +171,13 @@ private:
             }
             
             // 过滤map_scan得到的背景点云
-            kdtree_.nearestKSearch(point_in, 1, point_idx_search, point_dist_squared);
+            kdtree_.nearestKSearch(point_in, 1, point_idx_search, point_dist_squared); //if forget how to work go to pcl Ktree explains it
             if (point_dist_squared[0] < threshold_distance * threshold_distance)
             {
                 filtered_count++;
                 continue;
             }
-            cloud_filtered->points.push_back(point_in);
+            cloud_filtered->points.push_back(point_in); // the new points for cloud_filtered
         }
         RCLCPP_INFO(this->get_logger(), "remove %d points", filtered_count);
         RCLCPP_INFO(this->get_logger(), "point cloud size: %ld", cloud_filtered->points.size());
