@@ -5,6 +5,4 @@ logs
 **.engine
 **.onnx
 **.sh
-src/main/detection/yolo_detection/lib/**
-src/main/detection/yolo_detection/lib/libdeploy.so
-src/main/detection/yolo_detection/lib/plugin/libcustom_plugins.so
+*.so
