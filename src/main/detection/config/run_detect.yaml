@@ -18,3 +18,4 @@ tracker:
   confidence_threshold: 0.001  # if a tracker's confidence is lower than it, then it will be released
   past_confidence_alpha: 0.95   # how you believe the past judge, the higher it is, the more history affects now
   decrease_confidence_alpha: 0.8  # when you don't believe your judge, how fast you want to release it
+

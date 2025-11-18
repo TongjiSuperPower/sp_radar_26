@@ -1,0 +1,20 @@
+input: 1  # 0-camera, 1-video, 2-image
+
+car_engine_file: "./src/main/detection/models/ignore/car_11s.engine"
+armor_engine_file: "./src/main/detection/models/ignore/armor_11s.engine"
+
+camera_config_file: "./src/main/camera/camera_io/configs/camera.yaml"
+vedio_path: "./src/main/camera/media/record/2025-07-28_14-14-24.mp4"
+image_path: "./src/main/camera/images/your_image.jpg"
+
+save: true
+record_folder_path: "./src/main/detection/media/record" # camera input
+output_folder_path: "./src/main/detection/media/output" # video input
+
+tracker:
+  save_tracker_vedio: true
+  save_folder_path: "./src/main/detection/media/tracked_output" # save_folder_path
+  use_background_substractor: false
+  confidence_threshold: 0.001  # if a tracker's confidence is lower than it, then it will be released
+  past_confidence_alpha: 0.95   # how you believe the past judge, the higher it is, the more history affects now
+  decrease_confidence_alpha: 0.8  # when you don't believe your judge, how fast you want to release it

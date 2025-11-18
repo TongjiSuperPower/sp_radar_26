@@ -19,8 +19,8 @@ include_directories(${CUDA_ROOT}/include)
 link_directories(${CUDA_ROOT}/lib64)
 find_library(CUDA_LIBRARY cudart HINTS ${CUDA_ROOT}/lib64)
 
-set(TENSORRT_PATH "/home/radar/Downloads/TensorRT-8.6.1.6") 
-include_directories("/home/radar/Downloads/TensorRT-8.6.1.6/include")  
+set(TENSORRT_PATH "/home/radar/Downloads/TensorRT-8.6.1.6")
+include_directories("/home/radar/Downloads/TensorRT-8.6.1.6/include")
 
 # find dependencies
 set(FMT_INCLUDE_DIR "/usr/lib/x86_64-linux-gnu/")
