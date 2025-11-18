@@ -6,3 +6,10 @@ logs
 **.onnx
 **.sh
 *.so
+src/calibration/camera_calibration/assets/** 
+.vscode
+documents
+records
+**.pcd
+**.mp4
+**.STL
