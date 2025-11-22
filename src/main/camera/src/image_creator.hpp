@@ -17,6 +17,7 @@
 #include <thread>
 #include <cv_bridge/cv_bridge.h>
 #include <chrono>
+#include <sensor_msgs/msg/compressed_image.hpp>
 
 
 class ImageCreator : public rclcpp::Node
@@ -25,7 +26,8 @@ public:
     ImageCreator();
     ~ImageCreator();
 private:
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
+    //rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
+    rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr compressed_publisher_;
     rclcpp::TimerBase::SharedPtr camera_timer_;
     rclcpp::TimerBase::SharedPtr video_timer_;
     int input_; 

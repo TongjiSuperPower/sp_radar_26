@@ -5,7 +5,7 @@ ImageCreator::ImageCreator() : Node("image_creator_node")
     auto config = YAML::LoadFile("./src/main/camera/config/run_detect.yaml");
     input_ = config["input"].as<int>();
     RCLCPP_INFO(this->get_logger(), "ImageCreator node initialized");
-    image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("camera/image_jpg", 1); //maybe
+    compressed_publisher_ = this->create_publisher<sensor_msgs::msg::CompressedImage>("camera/image_compressed", 1); //maybe
     auto needed_file_ = std::make_unique<std::string>();    
     
     if (input_ == 0) {
@@ -77,11 +77,19 @@ void ImageCreator::mat2image2bag(cv::Mat frame)
         std_msgs::msg::Header header; 
         header.stamp = this->now();
         header.frame_id = "camera_frame";
+        std::vector<uchar> buf;
+        std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, 90}; // 90% JPEG quality
+        cv::imencode(".jpg", frame, buf, params);
+        auto compressed_msg = std::make_unique<sensor_msgs::msg::CompressedImage>();
+        
+        compressed_msg->header = header;
+        compressed_msg->format = "jpeg";
+        compressed_msg->data = buf; 
 
         auto bridge = cv_bridge::CvImage(header, "bgr8", frame);
         auto image_msg = bridge.toImageMsg();
         
-        image_publisher_->publish(*image_msg);
+        compressed_publisher_->publish(std::move(compressed_msg));
     }
     catch (const cv_bridge::Exception& e) {
         RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());

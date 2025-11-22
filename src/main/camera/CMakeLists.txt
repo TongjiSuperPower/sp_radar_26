@@ -18,6 +18,7 @@ find_package(OpenCV REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(fmt REQUIRED)
 
+
 # Fix include directories - use absolute paths
 include_directories(
   ${OpenCV_INCLUDE_DIRS}
