@@ -18,6 +18,7 @@ public:
         this->get_parameter("config_file", config_file);
         // Load configuration from YAML file
         const auto config = YAML::LoadFile(config_file);
+        std::cout << "help" << std::endl;
         pcd_target_path = config["pcd_target_path"].as<std::string>();
         topic_name = config["topic_name"].as<std::string>();
         scann_count = config["scann_count"].as<int>();
@@ -38,7 +39,7 @@ private:
         *merged_cloud_ += *cloud; // 合并点云
         count_++;
 
-        if (count_ == 50)
+        if (count_ == scann_count)
         {
             savePointCloud();
             merged_cloud_->clear(); // 清空已合并的点云

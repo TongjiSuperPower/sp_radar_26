@@ -99,28 +99,36 @@ private:
         sensor_msgs::msg::PointCloud2::SharedPtr output_msg(new sensor_msgs::msg::PointCloud2());
         auto now = get_clock()->now();
 
-        try
-        {   // TODO 检查重定位收敛时间
-            transform_L2M_ = tf_buffer_->lookupTransform(  //for transforming lidar to map frame
-                "map",
-                "lidar_frame",
-                rclcpp::Time(0),
-                rclcpp::Duration(1, 0));
+        if (!use_static_scan_){
+            try
+            {   // TODO 检查重定位收敛时间
+                transform_L2M_ = tf_buffer_->lookupTransform(  //for transforming lidar to map frame
+                    "map",
+                    "lidar_frame",
+                    rclcpp::Time(0),
+                    rclcpp::Duration(1, 0));
+            }
+            catch (tf2::TransformException &ex)
+            {
+                RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
+            } //the points wouldnbt be correct if we use the map transofrm?
+            transform_M2L_ = inverse_transform(transform_L2M_); 
+            tf2::doTransform(*msg, *msg, transform_L2M_); // first we get the msg into map frame
         }
-        catch (tf2::TransformException &ex)
-        {
-            RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
-        }
-        transform_M2L_ = inverse_transform(transform_L2M_); 
-        tf2::doTransform(*msg, *msg, transform_L2M_); // first we get the msg into map frame
+
         pcl::fromROSMsg(*msg, *cloud_in); // then to point cloud format
         removeOverlap(cloud_in, cloud_filtered); // then remove the overlap points from cloud_in and add the rest to cloud_filtered
         pcl::toROSMsg(*cloud_filtered, *output_msg);// to ros
-        tf2::doTransform(*output_msg, *output_msg, transform_M2L_);// again to livox
+
+        if (!use_static_scan_){
+            tf2::doTransform(*output_msg, *output_msg, transform_M2L_);// again to livox
+        }
 
         output_msg->header.frame_id = "livox_frame";
-        output_msg->header.stamp.sec = now.seconds();
-        output_msg->header.stamp.nanosec = static_cast<uint32_t>(now.nanoseconds() % 1000000000);
+        output_msg->header.stamp.sec = msg->header.stamp.sec;
+
+//        output_msg->header.stamp.sec = now.seconds();
+        output_msg->header.stamp.nanosec = msg->header.stamp.nanosec;
 
         publisher_->publish(*output_msg);
     }
@@ -162,14 +170,15 @@ private:
 
         for (const auto &point_in : cloud_in->points)
         {
-            // 过滤场地外的点
-            if (is_point_outside_field(point_in) || is_point_in_base(point_in) ||
-                is_point_in_outpost(point_in) || is_point_in_dart_door(point_in) || 
-                is_point_on_helipad(point_in) || is_point_in_exchange_station(point_in)) {
-                filtered_count++;
-                continue;
+            if (!use_static_scan_) {
+                // 过滤场地外的点
+                if (is_point_outside_field(point_in) || is_point_in_base(point_in) ||
+                    is_point_in_outpost(point_in) || is_point_in_dart_door(point_in) || 
+                    is_point_on_helipad(point_in) || is_point_in_exchange_station(point_in)) {
+                    filtered_count++;
+                    continue;
+                }
             }
-            
             // 过滤map_scan得到的背景点云
             kdtree_.nearestKSearch(point_in, 1, point_idx_search, point_dist_squared); //if forget how to work go to pcl Ktree explains it
             if (point_dist_squared[0] < threshold_distance * threshold_distance)
