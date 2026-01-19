@@ -1,25 +1,227 @@
 #include "detection2.hpp"
 
+//Information regarding Detection 2:
+//Detection 2 has been created in order to accomplish 3 tasks:
+//1. Using different nodes for camera and detection
+//2. Using compressed images
+//3. Using filtered points with armor detection
+//The filteredCallback1 and 2 are for detection only for points without any image or armor
+//filteredCallback3 and bboxcreater are required for filtered detection, the other functions are not required.
+//in the config file if you put in both 0 and 1 it will create two different videos at the same time. one using only images and one using images and points
+
+
 Detection2::Detection2() : Node("detection2_node")
 {
     // Initialize member variables, not local variables
-    detector_manager_ = std::make_shared<DetectorManager>(3);
+    // It's the detector_manager that cause the Ctrl-C problem
+    detector_manager_ = std::make_shared<DetectorManager>(3, this->get_clock());
     timer_ = std::make_shared<tools::Timer>();
+    std::string config_file = "./src/main/detection2/config/run_detect.yaml";
+    // get_parameter("config_file", config_file);
+    const auto yaml_config = YAML::LoadFile(config_file);
     detector_manager_->set_timer(timer_);
+    std::vector<int> input_for_method = yaml_config["input_for_method"].as<std::vector<int>>();
+    bool i_want_to = false;
 
-    subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
-        "camera/image_jpg", 10,
-        std::bind(&Detection2::Detecter, this, std::placeholders::_1));
+    bool has_0 = std::find(input_for_method.begin(), input_for_method.end(), 0) != input_for_method.end();
+    bool has_1 = std::find(input_for_method.begin(), input_for_method.end(), 1) != input_for_method.end();
 
+    if (has_0) {
+        RCLCPP_INFO(this->get_logger(), "Starting Image-only detection (Method 0)");
+        subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
+            "camera/image_compressed", 10,
+            std::bind(&Detection2::Detecter, this, std::placeholders::_1));
+    }
+
+    // Method 1: LiDAR+Image fusion (if 1 is in list)
+    if (has_1) {
+        RCLCPP_INFO(this->get_logger(), "Starting LiDAR+Image fusion (Method 1)");
+        
+        subscription2_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+            "livox/filtered_lidar", 10,
+            std::bind(&Detection2::bboxcreater, this, std::placeholders::_1));
+        subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
+            "camera/image_compressed", 10,
+            std::bind(&Detection2::filteredCallback3, this, std::placeholders::_1));
+    }
+
+    if (has_0 && has_1) {
+        RCLCPP_INFO(this->get_logger(), 
+            "Running BOTH pipelines: Image detection + LiDAR+Image fusion");
+    } else if (has_0) {
+        RCLCPP_INFO(this->get_logger(), "Running ONLY Image detection");
+    } else if (has_1) {
+        RCLCPP_INFO(this->get_logger(), "Running ONLY LiDAR+Image fusion");
+    } else {
+        RCLCPP_WARN(this->get_logger(), "No valid methods specified!");
+    }
+
+    // if (std::find(input_for_method.begin(), input_for_method.end(), 1) != input_for_method.end() && !i_want_to)
+    // {
+    //     subscription2_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    //         "livox/filtered_lidar", 10,
+    //         std::bind(&Detection2::bboxcreater, this, std::placeholders::_1));
+    //     subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
+    //         "camera/image_compressed", 10,
+    //         std::bind(&Detection2::filteredCallback3, this, std::placeholders::_1));
+    // }  
+    // else if (i_want_to) // i_want_to
+    // {
+    //     RCLCPP_INFO(this->get_logger(), "Detection2 node with only livox");
+    //      subscription2_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    //         "livox/filtered_lidar", 10,
+    //         std::bind(&Detection2::filteredCallback2, this, std::placeholders::_1));
+    // }
+    // else
+    // {  
+    //     subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
+    //         "camera/image_compressed", 10,
+    //         std::bind(&Detection2::Detecter, this, std::placeholders::_1));
+    // }
+    
+    carbbox_publisher_ = this->create_publisher<radar_msgs::msg::CarBbox>("car_bbox", 10);
+    
     RCLCPP_INFO(this->get_logger(), "Detection2 node initialized");
 }
 
-void Detection2::Detecter(const sensor_msgs::msg::Image::SharedPtr msg)
+void Detection2::filteredCallback(
+    const sensor_msgs::msg::CompressedImage::ConstSharedPtr& compressed_msg,
+    const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+    if (initial)
+    {
+        initial = false;
+        detector_manager_->filteredDetect(compressed_msg, msg);
+        timer_->syn_start("filtered detection");
+    }
+    else
+    {
+        detector_manager_->filteredDetect(compressed_msg, msg);
+        std::cout << "Time passed for Callback: " << timer_->syn_stop("filtered detection");
+        timer_->syn_start("filtered detection");
+    }    
+} 
+void Detection2::filteredCallback2(
+    const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+    RCLCPP_INFO(this->get_logger(), "we are inside filteredCallback2");
+    detector_manager_->filteredDetect2(msg);
+}
+
+void Detection2::filteredCallback3(
+    const sensor_msgs::msg::CompressedImage::ConstSharedPtr& compressed_msg)
+{
+    static size_t call_count = 0;
+    call_count++;
+    RCLCPP_INFO(this->get_logger(), "Callback #%zu", call_count);
+
+    rclcpp::Time img_time(compressed_msg->header.stamp);
+
+    if(!first_image_received_) {
+        first_image_time_ = img_time;
+        first_image_received_ = true;
+        RCLCPP_INFO(this->get_logger(),
+            "First Image: abs_time=%.3f, relative=0.000",
+            img_time.seconds());
+    }
+    
+    // ✅ SIMPLE: Image relative to first image
+    double img_relative = (img_time - first_image_time_).seconds();
+
+    std::vector<std::vector<float>> matched_bboxes;
+    double best_time_diff = std::numeric_limits<double>::max();
+    double matched_relative_time = 0.0;
+
+    {
+        std::lock_guard<std::mutex> lock(cache_mutex_);
+
+        RCLCPP_INFO(this->get_logger(), 
+            "Looking: Image@%.3fs (image timeline) | Cache: %zu entries",
+            img_relative, bbox_cache_.size());
+        
+        // ✅ CRITICAL: Compare RELATIVE times directly
+        // Both start at 0 for their first message
+        for (const auto& cached : bbox_cache_) {
+            // Both are seconds since first message of their type
+            double time_diff = std::abs(img_relative - cached.relative_time);
+            
+            RCLCPP_INFO(this->get_logger(),
+                "  LiDAR: @%.3fs (lidar timeline) Δ=%.3fs (%.1fms)",
+                cached.relative_time, time_diff, time_diff * 1000.0);
+            
+            if (time_diff < best_time_diff && time_diff < 5.0) {  // 5 second tolerance for now
+                best_time_diff = time_diff;
+                matched_bboxes = cached.bboxes;
+                matched_relative_time = cached.relative_time;
+            }
+        }
+    }
+
+    if (!matched_bboxes.empty()) {
+        RCLCPP_INFO(this->get_logger(), 
+            "✅ MATCHED: Image@%.3fs ↔ LiDAR@%.3fs Δt=%.1fms, %zu bboxes",
+            img_relative,
+            matched_relative_time,
+            best_time_diff * 1000.0,
+            matched_bboxes.size());
+        
+        detector_manager_->filteredDetect3(compressed_msg, matched_bboxes);
+
+    } else {
+        RCLCPP_WARN(this->get_logger(), 
+            "❌ NO MATCH for Image@%.3fs. Best Δt=%.1fms > 5s tolerance",
+            img_relative, best_time_diff * 1000.0);
+    }
+}
+
+std::vector<std::vector<float>> Detection2::bboxcreater(
+    const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+    auto bbox_array = detector_manager_->filteredDetect3Helper(msg);   
+    rclcpp::Time lidar_time(msg->header.stamp);
+
+    if (!first_lidar_received_) {
+        first_lidar_time_ = lidar_time;
+        first_lidar_received_ = true;
+        RCLCPP_INFO(this->get_logger(), 
+            "First LiDAR: abs_time=%.3f, relative=0.000",
+            lidar_time.seconds());
+    }
+
+    // ✅ SIMPLE: LiDAR relative to first LiDAR
+    double lidar_relative = (lidar_time - first_lidar_time_).seconds();
+    
+    TimedBBoxArray entry;
+    entry.bboxes = bbox_array;
+    entry.timestamp = lidar_time;
+    entry.relative_time = lidar_relative;  // LiDAR's own timeline
+    
+    {
+        std::lock_guard<std::mutex> lock(cache_mutex_);
+        bbox_cache_.push_back(entry);
+        
+        if (bbox_cache_.size() > max_cache_size_) {
+            bbox_cache_.pop_front();
+        }
+        
+        // Log REAL values
+        RCLCPP_INFO(this->get_logger(),
+            "Cached LiDAR: abs=%.3f, rel=%.3f (LIDAR timeline), bboxes=%zu",
+            lidar_time.seconds(), lidar_relative, bbox_array.size());
+    }
+
+    return bbox_array;
+}
+
+void Detection2::Detecter(const sensor_msgs::msg::CompressedImage::ConstSharedPtr& compressed_msg)
 {
     try
     {
-        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-        cv::Mat image = cv_ptr->image;
+        std::cout<< "check 1" << std::endl;
+        cv::Mat image = cv::imdecode(compressed_msg->data, cv::IMREAD_COLOR); // try without this first
+        cv::imshow("image", image);
+        //cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+        //cv::Mat image = cv_ptr->image;
         if (image.empty())
         {
             RCLCPP_WARN(this->get_logger(), "Converted image is empty");
@@ -29,12 +231,12 @@ void Detection2::Detecter(const sensor_msgs::msg::Image::SharedPtr msg)
 
         if (oldimage.empty())
         {
-            detector_manager_->detect_once(image, passtime * 1000, average_fps);
+            carbbox_publisher_->publish(detector_manager_->detect_once(image, passtime * 1000, average_fps));
             oldimage = image.clone();
             timer_->syn_start("msdetect");
-        } // size stays same so i used the
+        } // size stays same so i used the  
         else {
-            detector_manager_->detect_once(image, passtime * 1000, average_fps);
+            carbbox_publisher_->publish(detector_manager_->detect_once(image, passtime * 1000, average_fps));
             passtime = timer_->syn_stop("msdetect");
             timer_->syn_start("msdetect");
             total_duration += passtime;

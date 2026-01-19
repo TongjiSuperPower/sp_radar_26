@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 project(camera_detection2 LANGUAGES CXX CUDA)
+cmake_policy(SET CMP0074 NEW)
 
 # set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CXX_STANDARD 17)
@@ -9,13 +10,24 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+find_package(MPI)
+if(MPI_FOUND)
+  # Create dummy targets to satisfy VTK's MPI dependency
+  if(NOT TARGET MPI::MPI_C)
+    add_library(MPI::MPI_C INTERFACE IMPORTED)
+  endif()
+  if(NOT TARGET MPI::MPI_CXX)
+    add_library(MPI::MPI_CXX INTERFACE IMPORTED)
+  endif()
+endif()
+
 # 添加依赖项
 # CUDA
 find_package(CUDA REQUIRED)                           
 set(CMAKE_CUDA_ARCHITECTURES 89)                    
 set(CUDA_PATH ${CUDA_TOOLKIT_ROOT_DIR})                 
 set(CUDA_ROOT "/usr/local/cuda")
-include_directories(${CUDA_ROOT}/include) # 114
+include_directories(${CUDA_ROOT}/include)
 link_directories(${CUDA_ROOT}/lib64)
 find_library(CUDA_LIBRARY cudart HINTS ${CUDA_ROOT}/lib64)
 
@@ -35,6 +47,15 @@ find_package(sensor_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_sensor_msgs REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(PCL REQUIRED)
+find_package(message_filters REQUIRED)
+
 
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${EIGEN3_INCLUDE_DIR})
@@ -53,6 +74,12 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+include_directories(include)
+include_directories( ${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
 
 # 添加公共配置
 function(configure_cuda_trt target)
@@ -115,10 +142,12 @@ add_executable(runtime_car_armor
   src/detector_manager.cpp
   src/tracker.cpp
 )
+target_link_libraries(runtime_car_armor ${PCL_LIBRARIES} yaml-cpp)
 target_include_directories(runtime_car_armor PRIVATE ${TENSORRT_LIBRARY}/common)
 target_link_libraries(runtime_car_armor  -Wl,--no-as-needed deploy)
 target_link_libraries(runtime_car_armor  deploy ${NVINFER_LIBRARY} ${NVINFER_PLUGIN_LIBRARY} ${NVONNX_PARSER_LIB} ${CUDA_LIBRARY} yaml-cpp)
-target_link_libraries(runtime_car_armor  ${OpenCV_LIBS} ${FMT_LIBRARY} tools)
+target_link_libraries(runtime_car_armor ${OpenCV_LIBS} ${FMT_LIBRARY} tools)
+
 set_target_properties(runtime_car_armor PROPERTIES CUDA_ARCHITECTURES "61;70;75;86")
 ament_target_dependencies(runtime_car_armor
   rclcpp
@@ -127,7 +156,14 @@ ament_target_dependencies(runtime_car_armor
   cv_bridge
   image_transport
   OpenCV
+  tf2_ros
+  tf2_geometry_msgs
   nlohmann_json
+  std_msgs
+  pcl_conversions
+  PCL
+  tf2_sensor_msgs
+  message_filters
 )
 install(TARGETS runtime_car_armor
   DESTINATION lib/${PROJECT_NAME})

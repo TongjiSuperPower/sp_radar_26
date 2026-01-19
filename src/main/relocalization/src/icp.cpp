@@ -69,10 +69,11 @@ void ICPNode::gameStatusCallback(const radar_msgs::msg::GameStatus::SharedPtr ms
 
 void ICPNode::topic_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
-  if(game_process_ == 0)
-    return; // 比赛未开始
-  if(game_process_ == 1 && stage_remain_time_ >= 10)
-    return; // 准备阶段剩余时间大于等于10s
+  // if(game_process_ == 0)
+  //   std::cout << "help" << std::endl;
+  //   return; // 比赛未开始
+  // if(game_process_ == 1 && stage_remain_time_ >= 10)
+  //   return; // 准备阶段剩余时间大于等于10s
   RCLCPP_INFO(this->get_logger(), "Received point cloud message");
     pcl::fromROSMsg(*msg, *cloud_source_);
     // cloud_source_= filter_points_in_lidar(cloud_source_);  // 收敛后会有概率波动

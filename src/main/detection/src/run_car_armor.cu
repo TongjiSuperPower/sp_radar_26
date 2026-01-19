@@ -39,7 +39,7 @@ int main(int argc, char **argv)
         const int fps = 30;
         io::Camera camera(camera_config_file);
         tools::Recorder recorder(fps, record_folder_path);
-        tools::TimestampRecorder timestamp_recorder(record_folder_path);
+        // tools::TimestampRecorder timestamp_recorder(record_folder_path);
         cv::Mat frame;
         
         int frame_index = 0;
@@ -49,7 +49,7 @@ int main(int argc, char **argv)
             camera.read(frame, timestamp);
             if (save_flag) {
                 recorder.record(frame, timestamp);
-                timestamp_recorder.record_timestamp();
+                // timestamp_recorder.record_timestamp();
             }
             detector_manager->detect_once(frame);
             if(if_show_img)
@@ -63,7 +63,7 @@ int main(int argc, char **argv)
                     cv::destroyAllWindows();
                 }
             }
-            frame_index++;endif
+            frame_index++;
 
             std::cout << "now frame " << frame_index << std::endl;
         }
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
         int fps = int(cap.get(cv::CAP_PROP_FPS));
 
         tools::Recorder recorder(60, output_folder_path);
-        tools::TimestampRecorder timestamp_recorder(output_folder_path);
+        // tools::TimestampRecorder timestamp_recorder(output_folder_path);
 
         cv::Mat frame;
         int frame_index{0};
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
             cv::Mat frame_copy = frame.clone(); // 保证安全
             if (save_flag) {
                 recorder.record(frame_copy, current_time);
-                timestamp_recorder.record_timestamp();
+                // timestamp_recorder.record_timestamp();
             }
             cv::resize(frame_copy, frame_copy, cv::Size(1080, 720));
             if(if_show_img)
