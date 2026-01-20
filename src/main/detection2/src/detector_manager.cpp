@@ -52,7 +52,7 @@ DetectorManager::DetectorManager(int armor_detector_num, rclcpp::Clock::SharedPt
     // carbbox_publisher_ = this->create_publisher<radar_msgs::msg::CarBbox>("car_bbox", 10);
 //i take this and put it into deterction2
 //and i also take the 
-    tracker_manager_ = std::make_shared<TrackerManager>(config_file);
+    tracker_manager_ = std::make_shared<TrackerManager>();
 
     std::cout << "DetectorManager::DetectorManager()" << std::endl;
 }
@@ -497,6 +497,19 @@ geometry_msgs::msg::TransformStamped DetectorManager::inverse_transform(
     return inverse;
 }
 
+void draw_car_bbox(const radar_msgs::msg::CarBbox msg, cv::Mat& frame)
+{
+    for (auto bbox : msg.bboxs)
+    {
+        cv::Scalar color = (bbox.class_id < 6) ? cv::Scalar(255, 128, 0) : cv::Scalar(50, 50, 255);
+        if (bbox.x_min > 0 || bbox.y_min > 20 || bbox.x_max < frame.cols - 50 || bbox.y_max < frame.rows)
+        {
+            cv::rectangle(frame, cv::Point(bbox.x_min, bbox.y_min), cv::Point(bbox.x_max, bbox.y_max), color, 10);
+            cv::putText(frame, std::to_string((bbox.class_id) % 6 + 1), cv::Point(bbox.x_min + 40, bbox.y_min - 10), cv::FONT_HERSHEY_PLAIN, 6, color, 6);
+        }
+    }
+}
+
 radar_msgs::msg::CarBbox DetectorManager::detect_once(cv::Mat &image, float elapsed, float display_fps)
 {
     cv::Mat cloned_image = image.clone();
@@ -531,11 +544,12 @@ radar_msgs::msg::CarBbox DetectorManager::detect_once(cv::Mat &image, float elap
         car_r.push_back(r);
         auto future = submit_car(region);
         futures.push_back(std::move(future));
-        cv::putText(image, std::to_string((int)result.classes[j]), cv::Point(r.x, r.y - 10), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0x27, 0xC1, 0x36), 2);
-        std::ostringstream oss;
-        oss << std::fixed << std::setprecision(2) << result.scores[j];
-        std::string conf_str = oss.str();
-        cv::putText(image, conf_str, cv::Point(r.x + 40, r.y - 10), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0x27, 0xC1, 0x36), 2);
+
+        // cv::putText(image, std::to_string((int)result.classes[j]), cv::Point(r.x, r.y - 10), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0x27, 0xC1, 0x36), 2);
+        // std::ostringstream oss;
+        // oss << std::fixed << std::setprecision(2) << result.scores[j];
+        // std::string conf_str = oss.str();
+        // cv::putText(image, conf_str, cv::Point(r.x + 40, r.y - 10), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0x27, 0xC1, 0x36), 2);
     }
     timer_->syn_stop("detect_1");
     timer_->syn_start("detect_2");
@@ -570,13 +584,21 @@ radar_msgs::msg::CarBbox DetectorManager::detect_once(cv::Mat &image, float elap
     //     duration_60 = 0.0f; 
     // }
     // auto fps = 1000.0f / elapsed;
+
+
     auto fps_str = std::to_string(display_fps) + "fps";
     cv::putText(image, time_str, cv::Point(50, 50), cv::FONT_HERSHEY_DUPLEX, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
     cv::putText(image, fps_str, cv::Point(50, 100), cv::FONT_HERSHEY_DUPLEX, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
     cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+    draw_car_bbox(car_bboxs, image);
     
     // tracker
-    car_bboxs = tracker_manager_->callback(cloned_image, car_bboxs);
+    // car_bboxs = tracker_manager_->callback(car_bboxs);
+    // draw_car_bbox(car_bboxs, cloned_image);
+    // double scale = 0.5;
+    // cv::resize(cloned_image, cloned_image, cv::Size(), scale, scale);
+    // cv::imshow("tracked_output", cloned_image);
+
     // tracker_manager_->record(car_bboxs, cloned_image);
     // end of tracker
     return car_bboxs; 
@@ -664,7 +686,7 @@ radar_msgs::msg::CarBbox DetectorManager::detect_armors_on_bboxes(
     }
     cv::cvtColor(img, img, cv::COLOR_RGB2BGR);
 
-    car_bboxs = tracker_manager_->callback(cloned_image, car_bboxs);
+    car_bboxs = tracker_manager_->callback(car_bboxs);
     
     float elapsed = timer_->syn_stop("armor_detect") * 1000.0f; // Convert to ms
     

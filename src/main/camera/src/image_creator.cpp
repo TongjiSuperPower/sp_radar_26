@@ -15,7 +15,7 @@ ImageCreator::ImageCreator() : Node("image_creator_node")
             std::chrono::milliseconds(24), std::bind(&ImageCreator::cameraCallback, this)); 
     } 
     else if (input_ == 1) {
-        *needed_file_ = config["vedio_path"].as<std::string>();
+        *needed_file_ = config["video_path"].as<std::string>();
         cap_ = std::make_unique<cv::VideoCapture>(*needed_file_);
         video_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(33), std::bind(&ImageCreator::videoCallback, this));
