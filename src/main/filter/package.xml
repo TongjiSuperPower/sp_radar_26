@@ -1,21 +1,19 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>detection</name>
+  <name>filter</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="2200187107@qq.com">lp1</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <depend>rclcpp</depend>
-  <depend>radar_msgs</depend>
-  <depend>sensor_msgs</depend>
-  <depend>cv_bridge</depend>
-  <depend>std_msgs</depend>
-  <depend>image_transport</depend>
+  <build_depend>rclcpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
   <build_depend>pcl_conversions</build_depend>
-  <build_depend>pcl_msgs</build_depend>  
+  <build_depend>pcl_msgs</build_depend>
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>pcl_conversions</exec_depend>
   <exec_depend>pcl_msgs</exec_depend>
 

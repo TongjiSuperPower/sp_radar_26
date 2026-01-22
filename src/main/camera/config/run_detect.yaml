@@ -1,10 +1,10 @@
-input: 1  # 0-camera, 1-video, 2-image
+input: 0  # 0-camera, 1-video, 2-image
 
 car_engine_file: "./src/main/detection/models/ignore/car_11s.engine"
 armor_engine_file: "./src/main/detection/models/ignore/armor_11s.engine"
 
 camera_config_file: "./src/main/camera/camera_io/configs/camera.yaml"
-video_path: "/home/radar/Desktop/25_national_match/5-南航/2025-08-02_09-22-58.mp4"
+video_path: "/home/radar/Desktop/radar2026/dataset/SuperPower/25_national_match/1-北工/2025-07-29_14-42-36.mp4"
 image_path: "./src/main/camera/images/your_image.jpg"
 
 save: true

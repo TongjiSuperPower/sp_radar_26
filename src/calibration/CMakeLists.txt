@@ -119,10 +119,6 @@ target_link_libraries(tf_broadcast Qt5::Widgets yaml-cpp)
 install(TARGETS tf_broadcast
   DESTINATION lib/${PROJECT_NAME})
 
-install(DIRECTORY configs launch
-  DESTINATION share/${PROJECT_NAME}
-)
-
 
 add_executable(coordinate_transform coordinate_transform/src/main.cpp)
 target_link_libraries(coordinate_transform yaml-cpp)
@@ -144,15 +140,15 @@ ament_target_dependencies(scaling
 install(TARGETS scaling
   DESTINATION lib/${PROJECT_NAME})
 
-add_executable(pcl_publisher pcd_pcd_calibration/pcd_pcd.cpp)
-ament_target_dependencies(pcl_publisher
+add_executable(pcd_pcd pcd_pcd_calibration/pcd_pcd.cpp)
+ament_target_dependencies(pcd_pcd
   rclcpp
   sensor_msgs
   pcl_conversions
   PCL
 )
 
-install(TARGETS pcl_publisher
+install(TARGETS pcd_pcd
   DESTINATION lib/${PROJECT_NAME}
 )
 

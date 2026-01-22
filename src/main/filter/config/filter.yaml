@@ -1,0 +1,3 @@
+use_static_scan: false
+map_pcd_path: "./src/main/filter/pcd/zzbuilding12.pcd"
+scan_pcd_path: "./src/main/filter/pcd/process_2.pcd"

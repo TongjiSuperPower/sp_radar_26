@@ -5,8 +5,7 @@ ICPNode::ICPNode() : Node("icp_node")
 {
   // 初始化配置文件及重定位参数
   std::string config_file;
-  this->declare_parameter<std::string>("config_file", "");
-  this->get_parameter("config_file", config_file);
+  config_file = "src/main/relocalization/config/config.yaml";
   const auto config = YAML::LoadFile(config_file);
   pcd_target_path_ = config["pcd_target_path"].as<std::string>();
   topic_pointcloud_ = config["topic_pointcloud"].as<std::string>();
@@ -77,7 +76,7 @@ void ICPNode::topic_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   RCLCPP_INFO(this->get_logger(), "Received point cloud message");
     pcl::fromROSMsg(*msg, *cloud_source_);
     // cloud_source_= filter_points_in_lidar(cloud_source_);  // 收敛后会有概率波动
-    cloud_source_ = filter_points_in_map(cloud_source_);
+    // cloud_source_ = filter_points_in_map(cloud_source_);
     
     pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
     voxel_grid.setLeafSize(voxel_grid_size_, voxel_grid_size_, voxel_grid_size_);

@@ -3,8 +3,7 @@
 PointCloudSubscriber::PointCloudSubscriber() : Node("point_cloud_subscriber")
 {
     std::string config_file;
-    this->declare_parameter<std::string>("config_file", "");
-    this->get_parameter("config_file", config_file);
+    config_file = "src/calibration/configs/pointcloud_projection.yaml";
     const auto config = YAML::LoadFile(config_file);
     auto config_path = config["config_path"].as<std::string>();
 

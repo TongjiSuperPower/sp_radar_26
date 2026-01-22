@@ -1,7 +1,7 @@
-tvec_and_rvec_YPR: [0, 0, -0.59, 0, 0, 0]
+tvec_and_rvec_YPR: [1, 0, 0, 0, 0, 0]
 
-input: "./src/calibration/coordinate_transform/pcd/RMUC_25_voxel.pcd"
-output: "./src/calibration/coordinate_transform/pcd/RMUC_25_voxel_transform1.pcd"
+input: "./src/main/relocalization/pcd/zzbuilding2.pcd"
+output: "./src/main/relocalization/pcd/zzbuilding12.pcd"
 
 # 1
 # - Translation: [-0.305, 0.578, -0.265]

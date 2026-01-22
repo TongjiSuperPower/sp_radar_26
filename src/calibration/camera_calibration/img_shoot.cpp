@@ -14,8 +14,7 @@ int main(int argc, char *argv[])
     rclcpp::init(argc, argv);
     auto node = rclcpp::Node::make_shared("img_shoot");
     std::string config_file;
-    node->declare_parameter<std::string>("config_file", "");
-    node->get_parameter("config_file", config_file);
+    config_file = "src/calibration/configs/camera_shoot.yaml";
     const auto yaml_config = YAML::LoadFile(config_file);
     auto config_path = yaml_config["config_path"].as<std::string>();
     auto output_path = yaml_config["output_path"].as<std::string>();

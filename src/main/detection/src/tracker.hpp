@@ -1,90 +1,64 @@
-#include <iostream>
-#include <cmath>
-#include <vector>
-#include <tuple>
-#include <string>
+#ifndef __TRACKER_HPP__
+#define __TRACKER_HPP__
 
-#include <rclcpp/rclcpp.hpp>
-#include <radar_msgs/msg/car_bbox.hpp>
-#include <Eigen/Dense>
-#include <opencv2/opencv.hpp>
+#include <map>
+#include <list>
+#include <chrono>
+#include <rclcpp/time.hpp>
+#include <rclcpp/clock.hpp>
 #include <yaml-cpp/yaml.h>
 
-#include "camera_io/tools/extended_kalman_filter.hpp"
-#include "camera_io/tools/recorder.hpp"
+#include <radar_msgs/msg/car_bbox.hpp>
 
-#define MAX_CAR_NUMBER 12
-#define IOU_THRESHOLD 0.5
-#define EPSILON 10
+#include "tools/extended_kalman_filter.hpp"
 
-class Tracker {
+#define STATE_SIZE 8
+#define MEASUREMENT_SIZE 4
+#define ID_KINDS 12
+
+const int HISTORY_SIZE = 10;
+const double IOU_THRESHOLD = 0.25;
+const double TIME_THRESHOLD = 1.5;
+
+// x: x, y, w. h, dx, dy, dw, dh
+
+class Tracker : public tools::ExtendedKalmanFilter {
 public:
-    Tracker(radar_msgs::msg::Bbox Bbox, std::string config_path);
-    ~Tracker();
-    void set_delta_time(double delta_time);
-    void predict();
-    void update(radar_msgs::msg::Bbox Bbox);
-    void update(cv::Mat mask);
-    void update();
-    int get_id();
-    double get_confidence(int id) { return id_confidence_[id]; }
+    Tracker();
+    void predict(rclcpp::Time time);
+    void update(radar_msgs::msg::Bbox bbox);
+
     radar_msgs::msg::Bbox get_bbox();
+    bool has_lost_track();
     
 private:
-    std::vector<double> id_confidence_; // confidence of all ids
-    Eigen::VectorXd x_; // include x, y, w, h, dx, dy, dw, dh
-    Eigen::MatrixXd P_; // covariance martix of x_
-    double dt_;
-    std::shared_ptr<tools::ExtendedKalmanFilter> ekf_;
-    double past_confidence_alpha_;
-    double decrease_confidence_alpha_;
+    std::pair<int, double> get_id_and_confidence();
+    Eigen::VectorXd bbox_to_measurement(const radar_msgs::msg::Bbox& bbox);
+    void init_state_by_bbox(const radar_msgs::msg::Bbox& bbox);
 
-    void update_confidence(int id, double confidence);
+    rclcpp::Time last_update_time_;
+    rclcpp::Time last_time_;
 
-};
+    bool init_flag_;
+    
+    std::list<int> history_;    // id
+    int no_id_count_;
 
-
-struct PairedResult {   // used in TrackerManager::match
-    int status; // 0 paired, 1 only tracker, 2 only input msg
-    std::vector<Tracker>::iterator tracker;
-    radar_msgs::msg::Bbox bbox;
+    // refence: Bot-SORT (https://arxiv.org/pdf/2206.14651) 
+    float sigma_p = 0.05;
+    float sigma_v = 0.00625;
+    float sigma_m = 0.000000000005; // 0.05
 };
 
 class TrackerManager {
 public:
-    TrackerManager(std::string config_path);
-    radar_msgs::msg::CarBbox callback(const cv::Mat frame, radar_msgs::msg::CarBbox msg);
-    void record(const radar_msgs::msg::CarBbox msg, cv::Mat image);
+    radar_msgs::msg::CarBbox callback(radar_msgs::msg::CarBbox cars);
 
 private:
-    std::vector<Tracker> trackers_;
-    double last_update_time_;  
-    double delta_time_;
-    std::string config_path_;
-    bool save_flag_;
-    std::shared_ptr<tools::Recorder> recorder_;
-    cv::Ptr<cv::BackgroundSubtractorKNN> background_subtractor_;
-    bool use_background_substractor_; 
-    double confidence_threshold_;
-    double past_confidence_alpha_;
-    double decrease_confidence_alpha_;
-    
-    double IOU(radar_msgs::msg::Bbox bbox_1, radar_msgs::msg::Bbox bbox_2);
-    std::vector<PairedResult> match(const radar_msgs::msg::CarBbox msg);
-    void push_bboxes(radar_msgs::msg::CarBbox &tracked_car_bbox);
-    void auto_release();    
-    void clear_mask_in_bbox(cv::Mat mask, radar_msgs::msg::Bbox bbox);
+    double IOU(Tracker tracker, radar_msgs::msg::Bbox car);
+
+    std::list<Tracker> trackers_;
+    radar_msgs::msg::CarBbox::ConstPtr cars_;
 };
 
-class MeanShift {
-public:
-    MeanShift(cv::Mat mask, radar_msgs::msg::Bbox init_bbox);
-    radar_msgs::msg::Bbox do_mean_shift();
-
-private:
-    void shift_once();
-
-    int stop_;
-    cv::Mat mask_;
-    radar_msgs::msg::Bbox bbox_;
-};
+#endif

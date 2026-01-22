@@ -13,23 +13,9 @@
 #include <yaml-cpp/yaml.h>
 #include <Eigen/Dense>
 
-// Eigen::Affine3f tum_to_transform_stamped(std::vector<double> TUM)
-// {
-//     // 位置 (x,y,z)
-//     Eigen::Vector3f position(TUM[0], TUM[1], TUM[2]);
+#include <iostream>
 
-//     // 方向四元数 (w,x,y,z)
-//     Eigen::Quaternionf orientation(TUM[3], TUM[4], TUM[5], TUM[6]);
-    
-
-//     Eigen::Affine3f transform = Eigen::Affine3f::Identity();
-//     transform.translate(position);
-//     transform.rotate(orientation);
-
-//     return transform;
-// }
-
-Eigen::Affine3f tum_to_transform_stamped(std::vector<double> TUM)
+Eigen::Affine3f tvec_and_rvec_to_tranform_stamped(std::vector<double> TUM)
 {
     // 位置 (x,y,z)
     Eigen::Vector3f position(TUM[0], TUM[1], TUM[2]);
@@ -52,6 +38,8 @@ Eigen::Affine3f tum_to_transform_stamped(std::vector<double> TUM)
     transform.translate(position);
     transform.rotate(orientation);
 
+    std::cout << "position x: " << TUM[0] << std::endl;
+
     return transform;
 }
 
@@ -67,17 +55,12 @@ int main(int argc, char** argv)
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::io::loadPCDFile(input, *cloud);
     
-    // auto transform = tum_to_transform_stamped(t_r);
+    auto transform = tvec_and_rvec_to_tranform_stamped(t_r);
     
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    // pcl::transformPointCloud(*cloud, *transformed_cloud, transform);
+    pcl::transformPointCloud(*cloud, *transformed_cloud, transform);
     
-    for (auto& point : cloud->points)
-    {
-        if (point.z > -0.2) {
-            transformed_cloud->points.push_back(point);
-        } 
-    }
+
     transformed_cloud->width = transformed_cloud->points.size();
     transformed_cloud->height = 1; // 无序点云可以将 height 设置为 1
 

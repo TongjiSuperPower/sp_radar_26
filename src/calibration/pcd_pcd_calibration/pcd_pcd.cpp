@@ -47,7 +47,7 @@ private:
         
         // 发布点云
         publisher_->publish(output);
-        RCLCPP_DEBUG(this->get_logger(), "Published point cloud with %d points", cloud_->size());
+        RCLCPP_DEBUG(this->get_logger(), "Published point cloud with %ld points", cloud_->size());
     }
     
     void create_sample_cloud()
@@ -65,7 +65,7 @@ private:
             cloud_->push_back(p);
         }
 
-        RCLCPP_INFO(this->get_logger(), "Created sample cloud with %d points", cloud_->size());
+        RCLCPP_INFO(this->get_logger(), "Created sample cloud with %ld points", cloud_->size());
     }
     
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_;

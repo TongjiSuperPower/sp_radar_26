@@ -4,8 +4,7 @@
 PointCloudSubscriber::PointCloudSubscriber() : Node("point_cloud_subscriber")
 {
     std::string config_file;
-    this->declare_parameter<std::string>("config_file", "");
-    this->get_parameter("config_file", config_file);
+    config_file = "src/calibration/configs/rosbag_pointcloud_projection.yaml";
     const auto config = YAML::LoadFile(config_file);
 
     img_subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(

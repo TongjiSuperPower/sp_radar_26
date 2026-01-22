@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
-project(camera_detection LANGUAGES CXX CUDA)
+project(detection LANGUAGES CXX CUDA)
+cmake_policy(SET CMP0074 NEW)
 
 # set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CXX_STANDARD 17)
@@ -7,6 +8,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(MPI)
+if(MPI_FOUND)
+  # Create dummy targets to satisfy VTK's MPI dependency
+  if(NOT TARGET MPI::MPI_C)
+    add_library(MPI::MPI_C INTERFACE IMPORTED)
+  endif()
+  if(NOT TARGET MPI::MPI_CXX)
+    add_library(MPI::MPI_CXX INTERFACE IMPORTED)
+  endif()
 endif()
 
 # 添加依赖项
@@ -19,8 +31,8 @@ include_directories(${CUDA_ROOT}/include)
 link_directories(${CUDA_ROOT}/lib64)
 find_library(CUDA_LIBRARY cudart HINTS ${CUDA_ROOT}/lib64)
 
-set(TENSORRT_PATH "/home/radar/TensorRT-8.6.1.6") 
-include_directories("/home/radar/TensorRT-8.6.1.6/include") 
+set(TENSORRT_PATH "/home/radar/TensorRT-8.6.1.6")
+include_directories("/home/radar/TensorRT-8.6.1.6/include")
 
 # find dependencies
 set(FMT_INCLUDE_DIR "/usr/lib/x86_64-linux-gnu/")
@@ -31,6 +43,20 @@ find_package(Eigen3 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_sensor_msgs REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(PCL REQUIRED)
+find_package(message_filters REQUIRED)
+
+
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${PROJECT_SOURCE_DIR})
@@ -48,6 +74,12 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+include_directories(include)
+include_directories( ${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
 
 # 添加公共配置
 function(configure_cuda_trt target)
@@ -89,8 +121,7 @@ function(set_compile_options target)
     endif()
 endfunction()
 
-add_subdirectory(camera_io/tools)
-add_subdirectory(camera_io/io)
+add_subdirectory(tools)
 add_subdirectory(${PROJECT_SOURCE_DIR}/yolo_detection/plugin)  
 
 add_library(deploy SHARED)                                                                            # 创建共享库
@@ -107,23 +138,34 @@ else()
 endif()
 
 add_executable(runtime_car_armor
-  src/run_car_armor.cu
+  src/detection.cpp
   src/detector_manager.cpp
   src/tracker.cpp
 )
+target_link_libraries(runtime_car_armor ${PCL_LIBRARIES} yaml-cpp)
 target_include_directories(runtime_car_armor PRIVATE ${TENSORRT_LIBRARY}/common)
 target_link_libraries(runtime_car_armor  -Wl,--no-as-needed deploy)
 target_link_libraries(runtime_car_armor  deploy ${NVINFER_LIBRARY} ${NVINFER_PLUGIN_LIBRARY} ${NVONNX_PARSER_LIB} ${CUDA_LIBRARY} yaml-cpp)
-target_link_libraries(runtime_car_armor  ${OpenCV_LIBS} ${FMT_LIBRARY} tools io)
+target_link_libraries(runtime_car_armor ${OpenCV_LIBS} ${FMT_LIBRARY} tools)
+
 set_target_properties(runtime_car_armor PROPERTIES CUDA_ARCHITECTURES "61;70;75;86")
 ament_target_dependencies(runtime_car_armor
   rclcpp
   radar_msgs
+  sensor_msgs
+  cv_bridge
+  image_transport
+  OpenCV
+  tf2_ros
+  tf2_geometry_msgs
+  nlohmann_json
+  std_msgs
+  pcl_conversions
+  PCL
+  tf2_sensor_msgs
+  message_filters
 )
 install(TARGETS runtime_car_armor
   DESTINATION lib/${PROJECT_NAME})
-
-install(DIRECTORY launch config
-  DESTINATION share/${PROJECT_NAME}
-)
+  
 ament_package()

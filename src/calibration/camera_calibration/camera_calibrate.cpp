@@ -85,8 +85,7 @@ int main(int argc, char *argv[])
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("calibrate_camera");
   std::string config_file;
-  node->declare_parameter<std::string>("config_file", "");
-  node->get_parameter("config_file", config_file);
+  config_file = "src/calibration/configs/camera_calibrate.yaml";
   const auto yaml_config = YAML::LoadFile(config_file);
   auto input_folder = yaml_config["input_folder"].as<std::string>();
   auto config_path = yaml_config["config_path"].as<std::string>();

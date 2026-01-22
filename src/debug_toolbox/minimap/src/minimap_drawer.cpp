@@ -3,15 +3,14 @@
 
 #define default_fps 30
 
-#define minimap_length 1280
-#define minimap_width 674
+#define minimap_length 700
+#define minimap_width 800
 
 
 MapDrawer::MapDrawer() : Node("map_drawer")
 {
-    declare_parameter<std::string>("config_file", "");
     std::string config_file;
-    get_parameter("config_file", config_file);
+    config_file =  "src/debug_toolbox/minimap/config/minimap_drawer.yaml";
     const auto yaml_config = YAML::LoadFile(config_file);
     
     bool compare = yaml_config["compare"].as<bool>();
@@ -126,7 +125,7 @@ void MapDrawer::draw_robots()
 
 void MapDrawer::draw_a_robot(int id, int x, int y)
 {
-    const int map_length = 2800, map_width = 1500;
+    const int map_length = 700, map_width = 800;
 
     // const int map_length = 1150, map_width = 650;
     // A car with x = 0 and y = 0 represent it isn't been discovered, and prevent over range.
