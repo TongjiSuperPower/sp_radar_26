@@ -29,7 +29,7 @@ Detection::Detection() : Node("detection_node")
     if (has_0) {
         RCLCPP_INFO(this->get_logger(), "Starting Image-only detection (Method 0)");
         subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-            "camera/image_compressed", 10,
+            "camera/image_compressed", 1,
             std::bind(&Detection::Detecter, this, std::placeholders::_1));
     }
 
@@ -217,11 +217,13 @@ void Detection::Detecter(const sensor_msgs::msg::CompressedImage::ConstSharedPtr
 {
     try
     {
-        std::cout<< "check 1" << std::endl;
         cv::Mat image = cv::imdecode(compressed_msg->data, cv::IMREAD_COLOR); // try without this first
-        cv::imshow("image", image);
         //cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
         //cv::Mat image = cv_ptr->image;
+        int last_time = (int)(compressed_msg->header.stamp.sec * 1000 + compressed_msg->header.stamp.nanosec / 1e6);
+        int this_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+        RCLCPP_INFO(this->get_logger(), "Delay: %d ms", this_time - last_time);
+        if (this_time - last_time > 100) RCLCPP_ERROR(this->get_logger(), "ERROR: High Delay!!!");
         if (image.empty())
         {
             RCLCPP_WARN(this->get_logger(), "Converted image is empty");
