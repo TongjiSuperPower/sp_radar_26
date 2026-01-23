@@ -1,4 +1,4 @@
-pcd_target_path: "./src/main/filter/pcd/zzbuilding12.pcd"
+pcd_target_path: "./src/main/relocalization/pcd/zzbuilding12.pcd"
 topic_pointcloud: "/livox/lidar"
 topic_game_status: "/game_status"
 

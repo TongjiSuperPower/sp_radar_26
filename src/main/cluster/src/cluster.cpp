@@ -6,7 +6,7 @@
 #include <rclcpp/duration.hpp>
 #include <pcl/segmentation/extract_clusters.h>
 
-Cluster::Cluster(const rclcpp::NodeOptions& node_options): Node("cluster_node", node_options), queue_(accumulate_frame)
+Cluster::Cluster(): Node("cluster_node")
 {
     RCLCPP_INFO(this->get_logger(), "cluster_node start");
     sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/livox/filtered_lidar", 10, std::bind(&Cluster::callback, this, std::placeholders::_1));
@@ -22,8 +22,10 @@ void Cluster::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     
     pcl::fromROSMsg(*msg, *cloud);
     RCLCPP_INFO(this->get_logger(), "Received a point cloud with %d points", cloud->size());
-    queue_.push_back(cloud);
-    for (auto& points: queue_) {
+    points_list_.push_back(cloud);
+    if (points_list_.size() > accumulate_frame)
+        points_list_.pop_front();
+    for (auto& points: points_list_) {
         *cloud_across_frame += *points;
     }
     
@@ -78,9 +80,6 @@ void Cluster::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     RCLCPP_INFO(this->get_logger(), "Cluster callback time: %f", std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()/1000.0);
 }
 
-
-RCLCPP_COMPONENTS_REGISTER_NODE(Cluster)
-
 void print_cloud(sensor_msgs::msg::PointCloud2 msg)
 {
     // 使用 PCL 库进行点云转换
@@ -92,4 +91,12 @@ void print_cloud(sensor_msgs::msg::PointCloud2 msg)
         std::cout << "\tx: " << point.x << " y: " << point.y << " z: " << point.z << std::endl;
     }
 
+}
+
+int main(int argc, char **argv)
+{
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<Cluster>());
+    rclcpp::shutdown();
+    return 0;
 }

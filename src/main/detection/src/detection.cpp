@@ -242,21 +242,21 @@ void Detection::Detecter(const sensor_msgs::msg::CompressedImage::ConstSharedPtr
             total_duration += passtime;
             frame_count++;
             RCLCPP_INFO(this->get_logger(), "Detection time: %.4f ms", 1000 * passtime);
-            }
-            // average_fps = 1 / passtime;
-            if (frame_count >= 60) {
-                average_fps = frame_count / total_duration;
-                RCLCPP_INFO(this->get_logger(), "Average FPS over last %d frames: %.2f", frame_count, average_fps);
-                frame_count = 0;
-                total_duration = 0.0f;
-            }
-
-            // frame_count = 0;
-            // total_duration = 0.0f;
-            cv::resize(image, image, cv::Size(960, 540));
-            cv::imshow("detection_result", image);
-            cv::waitKey(1);
         }
+        // average_fps = 1 / passtime;
+        if (frame_count >= 60) {
+            average_fps = frame_count / total_duration;
+            RCLCPP_INFO(this->get_logger(), "Average FPS over last %d frames: %.2f", frame_count, average_fps);
+            frame_count = 0;
+            total_duration = 0.0f;
+        }
+
+        // frame_count = 0;
+        // total_duration = 0.0f;
+        cv::resize(image, image, cv::Size(960, 540));
+        cv::imshow("detection_result", image);
+        cv::waitKey(1);
+    }
     catch (const std::exception &e)
     {
         std::cerr << e.what() << '\n';

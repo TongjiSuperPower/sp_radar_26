@@ -1,22 +1,26 @@
 cmake_minimum_required(VERSION 3.8)
 project(cluster)
 set(CMAKE_BUILD_TYPE "RELEASE")
-find_package (ament_cmake_auto REQUIRED) 
-ament_auto_find_build_dependencies ()
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(PCL REQUIRED)
 
 include_directories(include)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
-set(CLUSTER_NODE "cluster")
-file(GLOB_RECURSE CLUSTER_NODE_SRCS "src/*.cpp")
 
-ament_auto_add_library(${CLUSTER_NODE} SHARED
-    ${CLUSTER_NODE_SRCS}
+add_executable(cluster src/cluster.cpp)
+target_link_libraries(cluster
+  ${PCL_LIBRARIES}
 )
+ament_target_dependencies(cluster
+  rclcpp
+  pcl_conversions
+  PCL)
+install(TARGETS cluster DESTINATION lib/${PROJECT_NAME})
 
-target_link_libraries(${CLUSTER_NODE} ${PCL_LIBRARIES})
+ament_package()
 
-rclcpp_components_register_node(${CLUSTER_NODE}
-    PLUGIN "Cluster"
-    EXECUTABLE ${CLUSTER_NODE}_node
-)
-ament_auto_package ()
