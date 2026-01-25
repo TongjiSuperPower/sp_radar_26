@@ -11,7 +11,6 @@
 #include "radar_msgs/msg/car.h"
 #include "radar_msgs/msg/cars.hpp"
 
-#include "../tools/iterable_queue.hpp"
 #include "../tools/extended_kalman_filter.hpp"
 
 #define STATE_SIZE 4

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(compressed_image_viewer)
+project(image_viewer)
 
 # 默认使用C++17
 if(NOT CMAKE_CXX_STANDARD)
@@ -21,10 +21,10 @@ find_package(OpenCV REQUIRED)
 include_directories(include)
 
 # 创建可执行文件
-add_executable(compressed_image_viewer src/compressed_image_viewer.cpp)
+add_executable(image_viewer src/image_viewer.cpp)
 
 # 链接库
-ament_target_dependencies(compressed_image_viewer
+ament_target_dependencies(image_viewer
   rclcpp
   image_transport
   cv_bridge
@@ -33,12 +33,12 @@ ament_target_dependencies(compressed_image_viewer
 )
 
 include_directories(${OpenCV_INCLUDE_DIRS})
-target_link_libraries(compressed_image_viewer
+target_link_libraries(image_viewer
   ${OpenCV_LIBRARIES}
 )
 
 # 安装可执行文件
-install(TARGETS compressed_image_viewer
+install(TARGETS image_viewer
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

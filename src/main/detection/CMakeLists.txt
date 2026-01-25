@@ -76,7 +76,7 @@ if(BUILD_TESTING)
 endif()
 
 include_directories(include)
-include_directories( ${PCL_INCLUDE_DIRS})
+include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
@@ -137,19 +137,19 @@ else()
     set_target_properties(deploy PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/yolo_detection/lib)         # 设置库文件输出目录
 endif()
 
-add_executable(runtime_car_armor
+add_executable(detection
   src/detection.cpp
   src/detector_manager.cpp
   src/tracker.cpp
 )
-target_link_libraries(runtime_car_armor ${PCL_LIBRARIES} yaml-cpp)
-target_include_directories(runtime_car_armor PRIVATE ${TENSORRT_LIBRARY}/common)
-target_link_libraries(runtime_car_armor  -Wl,--no-as-needed deploy)
-target_link_libraries(runtime_car_armor  deploy ${NVINFER_LIBRARY} ${NVINFER_PLUGIN_LIBRARY} ${NVONNX_PARSER_LIB} ${CUDA_LIBRARY} yaml-cpp)
-target_link_libraries(runtime_car_armor ${OpenCV_LIBS} ${FMT_LIBRARY} tools)
+target_link_libraries(detection ${PCL_LIBRARIES} yaml-cpp)
+target_include_directories(detection PRIVATE ${TENSORRT_LIBRARY}/common)
+target_link_libraries(detection  -Wl,--no-as-needed deploy)
+target_link_libraries(detection  deploy ${NVINFER_LIBRARY} ${NVINFER_PLUGIN_LIBRARY} ${NVONNX_PARSER_LIB} ${CUDA_LIBRARY} yaml-cpp)
+target_link_libraries(detection ${OpenCV_LIBS} ${FMT_LIBRARY} tools)
 
-set_target_properties(runtime_car_armor PROPERTIES CUDA_ARCHITECTURES "61;70;75;86")
-ament_target_dependencies(runtime_car_armor
+set_target_properties(detection PROPERTIES CUDA_ARCHITECTURES "61;70;75;86")
+ament_target_dependencies(detection
   rclcpp
   radar_msgs
   sensor_msgs
@@ -165,7 +165,7 @@ ament_target_dependencies(runtime_car_armor
   tf2_sensor_msgs
   message_filters
 )
-install(TARGETS runtime_car_armor
+install(TARGETS detection
   DESTINATION lib/${PROJECT_NAME})
   
 ament_package()
