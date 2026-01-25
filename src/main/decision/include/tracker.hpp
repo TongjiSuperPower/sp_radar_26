@@ -39,7 +39,7 @@ private:
     double dt_;
     bool init_flag_;
     // int id_;
-    tools::IterableQueue<int> history_;    // id
+    std::list<int> history_;    // id
     int no_id_count_;
 
     float sigma_q_x_ = 50.0f;//越小相信模型

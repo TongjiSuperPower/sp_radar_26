@@ -7,8 +7,7 @@
 
 Tracker::Tracker() : 
     tools::ExtendedKalmanFilter(Eigen::VectorXd::Zero(STATE_SIZE), 
-        Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE)), 
-    history_(HISTORY_SIZE)
+        Eigen::MatrixXd::Identity(STATE_SIZE, STATE_SIZE))
 {
     init_flag_ = 0;
     no_id_count_ = 0;
@@ -47,10 +46,15 @@ void Tracker::update(radar_msgs::msg::Car car)
         tools::ExtendedKalmanFilter::update(z, H, R);
     }
 
-    if (car.class_id != -1)
+    if (car.class_id != -1) {
         history_.push_back(car.class_id);
-    else 
+        if (history_.size() > HISTORY_SIZE) {
+            history_.pop_front();
+        }
+    }
+    else {
         no_id_count_++;
+    }
 
     // if (car.class_id != -1) {
     //     id_ = car.class_id;
