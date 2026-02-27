@@ -18,7 +18,8 @@ void Cluster::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>), 
-        cloud_across_frame(new pcl::PointCloud<pcl::PointXYZ>);
+                                        cloud_across_frame(new pcl::PointCloud<pcl::PointXYZ>), 
+                                        cloud_projected(new pcl::PointCloud<pcl::PointXYZ>);
     
     pcl::fromROSMsg(*msg, *cloud);
     RCLCPP_INFO(this->get_logger(), "Received a point cloud with %d points", cloud->size());
@@ -29,9 +30,10 @@ void Cluster::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         *cloud_across_frame += *points;
     }
     
+    cloud_projected = project(cloud_across_frame);
     if (cloud->empty()) {return;}
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
-    tree->setInputCloud(cloud_across_frame);
+    tree->setInputCloud(cloud_projected);
     auto time = std::chrono::system_clock::now();
 
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
@@ -39,7 +41,7 @@ void Cluster::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     ec.setMinClusterSize(5);
     ec.setMaxClusterSize(1000);
     ec.setSearchMethod(tree);
-    ec.setInputCloud(cloud_across_frame);
+    ec.setInputCloud(cloud_projected);
     std::vector<pcl::PointIndices> cluster_indices;
     ec.extract(cluster_indices);
     // std::cout<<(std::chrono::system_clock::now()-time).count()<<"ms"<<std::endl;
@@ -80,17 +82,26 @@ void Cluster::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     RCLCPP_INFO(this->get_logger(), "Cluster callback time: %f", std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()/1000.0);
 }
 
-void print_cloud(sensor_msgs::msg::PointCloud2 msg)
-{
-    // 使用 PCL 库进行点云转换
-    pcl::PointCloud<pcl::PointXYZ> cloud;
-    pcl::fromROSMsg(msg, cloud); // 将 ROS PointCloud2 转换为 PCL 点云
-    std::cout << "PointCloud: " << cloud.width * cloud.height << " data points" << std::endl;
-    for (auto& point : cloud)
-    {
-        std::cout << "\tx: " << point.x << " y: " << point.y << " z: " << point.z << std::endl;
+pcl::PointCloud<pcl::PointXYZ>::Ptr Cluster::project(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud_xyz) {
+    
+    // 创建输出点云
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_projected(new pcl::PointCloud<pcl::PointXYZ>);
+    
+    // 设置点云属性
+    cloud_projected->width = cloud_xyz->width;
+    cloud_projected->height = cloud_xyz->height;
+    cloud_projected->is_dense = cloud_xyz->is_dense;
+    cloud_projected->points.resize(cloud_xyz->size());
+    
+    // 转换每个点
+    for (size_t i = 0; i < cloud_xyz->size(); ++i) {
+        cloud_projected->points[i].x = cloud_xyz->points[i].x;
+        cloud_projected->points[i].y = cloud_xyz->points[i].y;
+        cloud_projected->points[i].z = 0.0;
     }
-
+    
+    return cloud_projected;
 }
 
 int main(int argc, char **argv)

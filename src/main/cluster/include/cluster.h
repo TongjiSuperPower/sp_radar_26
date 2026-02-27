@@ -26,6 +26,7 @@ public:
     
 private:
     void callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr project(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud_xyz);
 
     std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> points_list_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_;
