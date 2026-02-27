@@ -34,7 +34,6 @@
 using namespace small_gicp;
 /// ————————————————————————————————————————————————
 
-#include "max_size_queue.hpp"
 #include "radar_msgs/msg/game_status.hpp"
 
 class ICPNode : public rclcpp::Node
