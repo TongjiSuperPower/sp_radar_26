@@ -2,7 +2,7 @@
 
 ImageCreator::ImageCreator() : Node("image_creator_node")
 {
-    auto config = YAML::LoadFile("./src/main/camera/config/run_detect.yaml");
+    auto config = YAML::LoadFile("./src/main/camera/config/config.yaml");
     input_ = config["input"].as<int>();
     RCLCPP_INFO(this->get_logger(), "ImageCreator node initialized");
     compressed_publisher_ = this->create_publisher<sensor_msgs::msg::CompressedImage>("camera/image_compressed", 1); //maybe
