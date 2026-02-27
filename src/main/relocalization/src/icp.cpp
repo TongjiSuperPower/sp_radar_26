@@ -19,6 +19,8 @@ ICPNode::ICPNode() : Node("icp_node")
   num_threads_ = config["num_threads"].as<int>();
   max_dist_sq_ = config["max_dist_sq"].as<double>();
   init_params_ = config["init_params"].as<std::vector<float>>();
+  filter_flag_ = config["filter_flag"].as<bool>();
+  listen_game_status_ = config["listen_game_status"].as<bool>();
   init_map2lidar_();
 
   best_score_ = INT_MAX;
@@ -68,37 +70,40 @@ void ICPNode::gameStatusCallback(const radar_msgs::msg::GameStatus::SharedPtr ms
 
 void ICPNode::topic_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
-  // if(game_process_ == 0)
-  //   std::cout << "help" << std::endl;
-  //   return; // 比赛未开始
-  // if(game_process_ == 1 && stage_remain_time_ >= 10)
-  //   return; // 准备阶段剩余时间大于等于10s
+  if (listen_game_status_) {  // 是否等待比赛开始
+    if(game_process_ == 0)
+      return; // 比赛未开始
+    if(game_process_ == 1 && stage_remain_time_ >= 10)
+      return; // 准备阶段剩余时间大于等于10s
+  }
   RCLCPP_INFO(this->get_logger(), "Received point cloud message");
-    pcl::fromROSMsg(*msg, *cloud_source_);
-    // cloud_source_= filter_points_in_lidar(cloud_source_);  // 收敛后会有概率波动
-    // cloud_source_ = filter_points_in_map(cloud_source_);
-    
-    pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
-    voxel_grid.setLeafSize(voxel_grid_size_, voxel_grid_size_, voxel_grid_size_);
-    voxel_grid.setInputCloud(cloud_source_);
-    voxel_grid.filter(*cloud_source_filtered_);
+  pcl::fromROSMsg(*msg, *cloud_source_);
+  // cloud_source_= filter_points_in_lidar(cloud_source_);  // 收敛后会有概率波动
+  if (filter_flag_) {
+    cloud_source_ = filter_points_in_map(cloud_source_);
+  }
+  
+  pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
+  voxel_grid.setLeafSize(voxel_grid_size_, voxel_grid_size_, voxel_grid_size_);
+  voxel_grid.setInputCloud(cloud_source_);
+  voxel_grid.filter(*cloud_source_filtered_);
 
-    auto start = std::chrono::steady_clock::now();
-    if (use_small_gicp_)
-      small_gicp();
-    else
-      icp();
-    auto end = std::chrono::steady_clock::now();
-    auto diff = end - start;
-    RCLCPP_INFO(this->get_logger(), "GICP time: %f ms", std::chrono::duration<double, std::milli>(diff).count());
-    if (use_best_result_)
-    {
-      update_best_result(result_t_);
-      update_map2lidar(best_result_t_);
-    }
-    else if (icp_score_ < max_score_)
-      update_map2lidar(result_t_);
-    printEularTvector(result_t_);
+  auto start = std::chrono::steady_clock::now();
+  if (use_small_gicp_)
+    small_gicp();
+  else
+    icp();
+  auto end = std::chrono::steady_clock::now();
+  auto diff = end - start;
+  RCLCPP_INFO(this->get_logger(), "GICP time: %f ms", std::chrono::duration<double, std::milli>(diff).count());
+  if (use_best_result_)
+  {
+    update_best_result(result_t_);
+    update_map2lidar(best_result_t_);
+  }
+  else if (icp_score_ < max_score_)
+    update_map2lidar(result_t_);
+  printEularTvector(result_t_);
 }
 
 Eigen::Matrix4f ICPNode::genTransformation(const std::vector<float> &params)

@@ -100,6 +100,7 @@ private:
   geometry_msgs::msg::TransformStamped map2lidar_;
 
   Eigen::Matrix4f transformation_;
+  bool filter_flag_, listen_game_status_;
 };
 
 #endif // ICP_NODE_HPP
