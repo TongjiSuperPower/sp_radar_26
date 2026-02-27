@@ -12,6 +12,7 @@
 #include "radar_msgs/msg/cars.hpp"
 
 #include "../tools/extended_kalman_filter.hpp"
+#include "hungarian_optimizer.h"
 
 #define STATE_SIZE 4
 #define MEASUREMENT_SIZE 2
@@ -54,9 +55,9 @@ public:
 
 private:
     // std::list<Tracker>::iterator find_nearest_tracker(radar_msgs::msg::Car car);
-    radar_msgs::msg::Car find_nearest_car(Tracker& tracker, radar_msgs::msg::Cars::SharedPtr cars);
 
-    std::list<Tracker> trackers_;
+    void update_costs(const std::vector<std::vector<float>>& association_mat, SecureMat<float>* costs);
+    std::vector<Tracker> trackers_;
     radar_msgs::msg::Cars::ConstPtr cars_;
 };
 
