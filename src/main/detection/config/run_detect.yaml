@@ -1,5 +1,4 @@
-input: 0  # 0-camera, 1-video, 2-image
-input_for_method: [0]  #0-yolo 1-pcl [0, 1]-both use lists please -> [0] or [1]
+input_for_method: [1]  #0-yolo 1-pcl [0, 1]-both use lists please -> [0] or [1]
 car_engine_file: "./src/main/detection/models/ignore/car_12s.engine"
 armor_engine_file: "./src/main/detection/models/ignore/armor_11s.engine"
 
@@ -12,9 +11,10 @@ record_folder_path: "./src/main/detection/media/record" # camera input
 output_folder_path: "./src/main/detection/media/output" # video input
 
 TUM_camera2lidar: [0.0129, -0.00182, 0.05326, 0.5785936089907356, -0.5640292247736411, 0.41572431439503427, -0.4174610923871829]
-camera_matrix: [2554.0004081094098, 0, 1515.3684739680807, 0, 2561.0490183481188, 1068.8919154079756, 0, 0, 1]
+camera_matrix: [2554.0004081094098,                  0, 1515.3684739680807, 
+                                 0, 2561.0490183481188, 1068.8919154079756, 
+                                 0,                  0,                  1]
 distort_coeffs: [-0.075624638780328837, 0.12231293697960384, 0.0018253919826664092, -0.00018031733064470789, 0]
-
 
 tracker:
   save_tracker_vedio: true
