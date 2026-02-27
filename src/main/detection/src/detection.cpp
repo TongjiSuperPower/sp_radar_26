@@ -223,7 +223,7 @@ void Detection::Detecter(const sensor_msgs::msg::CompressedImage::ConstSharedPtr
         int last_time = (int)(compressed_msg->header.stamp.sec * 1000 + compressed_msg->header.stamp.nanosec / 1e6);
         int this_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         RCLCPP_INFO(this->get_logger(), "Delay: %d ms", this_time - last_time);
-        if (this_time - last_time > 100) RCLCPP_ERROR(this->get_logger(), "ERROR: High Delay!!!");
+        if (this_time - last_time > 100 && this_time - last_time < 1000) RCLCPP_WARN(this->get_logger(), "WARNING: High Delay!!!");
         if (image.empty())
         {
             RCLCPP_WARN(this->get_logger(), "Converted image is empty");

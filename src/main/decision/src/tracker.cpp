@@ -120,8 +120,8 @@ double Tracker::distance(radar_msgs::msg::Car car)
 
 bool Tracker::is_near(radar_msgs::msg::Car car)
 {
-    double v = sqrt(pow(x(1),2) + pow(x(3),2));
-    return distance(car) < DISTANCE_THRESHOLD + v * dt_;
+    float v = sqrt(pow(x(1),2) + pow(x(3),2));
+    return distance(car) < DISTANCE_THRESHOLD;
 }
 
 bool Tracker::has_lost_track()
@@ -136,15 +136,67 @@ bool Tracker::has_lost_track()
     return flag;
 }
 
+void TrackerManager::update_costs(const std::vector<std::vector<float>>& association_mat, SecureMat<float>* costs)
+{
+    size_t rows_size = association_mat.size();
+    size_t cols_size = rows_size > 0 ? association_mat.at(0).size() : 0;
+
+    costs->Resize(rows_size, cols_size);
+
+    for (size_t row_idx = 0; row_idx < rows_size; ++row_idx)
+    {
+        for (size_t col_idx = 0; col_idx < cols_size; ++col_idx)
+        {
+            (*costs)(row_idx, col_idx) = association_mat.at(row_idx).at(col_idx);
+        }
+    }
+}
+
 radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars::ConstPtr cars)
 {
     // match tracker with msg
     auto cars_msg = std::make_shared<radar_msgs::msg::Cars>(*cars);
-    for (auto& tracker : trackers_) {
+    
+    int n_trackers = trackers_.size();
+    int n_cars = cars_msg->cars.size();
+    std::vector<std::vector<float>> cost_matrix(n_trackers, std::vector<float>(n_cars, 1000.0));
+
+    int i = 0;
+    for (auto& tracker : trackers_)
+    {
         tracker.predict(cars->header.stamp);
-        auto car = find_nearest_car(tracker, cars_msg);     // find nearest car and remove it from messsage
-        if (tracker.is_near(car)) {
-            tracker.update(car);
+        for (size_t j = 0; j < cars_msg->cars.size() ; ++j)
+        {
+            if (tracker.is_near(cars_msg->cars[j]))
+            {
+                cost_matrix[i][j] = tracker.distance(cars_msg->cars[j]);
+            }
+        }
+        i++;
+    }
+
+    HungarianOptimizer<float> optimizer;
+    std::vector<std::pair<size_t, size_t>> assignments;
+    update_costs(cost_matrix, optimizer.costs());
+    optimizer.Minimize(&assignments);
+
+    std::set<size_t> indices_to_remove;
+    for (const auto& assignment : assignments)
+    {
+        size_t tracker_idx = assignment.first;
+        size_t car_idx = assignment.second;
+        std::cout << "distance:" << trackers_[tracker_idx].distance(cars_msg->cars[car_idx]) << std::endl;
+        if (trackers_[tracker_idx].is_near(cars_msg->cars[car_idx])) continue;
+        trackers_[tracker_idx].update(cars_msg->cars[car_idx]);
+        
+        if (car_idx < cars_msg->cars.size()) {
+            indices_to_remove.insert(car_idx);
+        }
+    }
+
+    for (auto it = indices_to_remove.rbegin(); it != indices_to_remove.rend(); ++it) {
+        if (*it < cars_msg->cars.size()) {
+            cars_msg->cars.erase(cars_msg->cars.begin() + *it);
         }
     }
 
@@ -207,30 +259,6 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     for (auto& [id, car] : id_car) {
         result->cars.push_back(car);
     }
-
     return result;
-}
-
-radar_msgs::msg::Car TrackerManager::find_nearest_car(Tracker& tracker, radar_msgs::msg::Cars::SharedPtr cars_msg)
-{
-    radar_msgs::msg::Car nearest_car;
-    double min_distance = DISTANCE_THRESHOLD;  
-
-    int nearest_car_index = -1;
-    for (int i = 0; i < cars_msg->cars.size(); i++) {
-        if (tracker.is_near(cars_msg->cars[i]) && tracker.distance(cars_msg->cars[i]) < min_distance) {
-            min_distance = tracker.distance(cars_msg->cars[i]);
-            nearest_car_index = i;
-        }
-    }
-        
-    if (nearest_car_index == -1) {
-        nearest_car.x = nearest_car.y = 10000.0;  // a meaningless position far from the map
-    }
-    else {
-        nearest_car = cars_msg->cars[nearest_car_index];
-        cars_msg->cars.erase(cars_msg->cars.begin() + nearest_car_index);
-    }
-
-    return nearest_car;
+    
 }
