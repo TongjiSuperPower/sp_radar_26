@@ -28,8 +28,11 @@ Detection::Detection() : Node("detection_node")
 
     if (has_0) {
         RCLCPP_INFO(this->get_logger(), "Starting Image-only detection (Method 0)");
+
+        rclcpp::QoS qos_profile(1);
+        qos_profile.best_effort();
         subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-            "camera/image_compressed", 1,
+            "camera/image_compressed", qos_profile,
             std::bind(&Detection::Detecter, this, std::placeholders::_1));
     }
 

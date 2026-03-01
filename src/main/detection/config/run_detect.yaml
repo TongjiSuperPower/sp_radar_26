@@ -1,4 +1,4 @@
-input_for_method: [1]  #0-yolo 1-pcl [0, 1]-both use lists please -> [0] or [1]
+input_for_method: [0]  #0-yolo 1-pcl [0, 1]-both use lists please -> [0] or [1]
 car_engine_file: "./src/main/detection/models/ignore/car_12s.engine"
 armor_engine_file: "./src/main/detection/models/ignore/armor_11s.engine"
 
