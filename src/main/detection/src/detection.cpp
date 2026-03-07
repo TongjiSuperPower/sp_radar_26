@@ -26,7 +26,7 @@ Detection::Detection() : Node("detection_node")
     bool has_0 = std::find(input_for_method.begin(), input_for_method.end(), 0) != input_for_method.end();
     bool has_1 = std::find(input_for_method.begin(), input_for_method.end(), 1) != input_for_method.end();
 
-    if (has_0) {
+    if (has_0 && !has_1) {
         RCLCPP_INFO(this->get_logger(), "Starting Image-only detection (Method 0)");
 
         rclcpp::QoS qos_profile(1);
@@ -37,28 +37,34 @@ Detection::Detection() : Node("detection_node")
     }
 
     // Method 1: LiDAR+Image fusion (if 1 is in list)
-    if (has_1) {
+    if (has_1 && !has_0) {
         RCLCPP_INFO(this->get_logger(), "Starting LiDAR+Image fusion (Method 1)");
+        rclcpp::QoS qos_profile(1);
+        qos_profile.best_effort();
         
         subscription2_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             "livox/filtered_lidar", 10,
             std::bind(&Detection::bboxcreater, this, std::placeholders::_1));
         subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-            "camera/image_compressed", 10,
+            "camera/image_compressed", qos_profile,
             std::bind(&Detection::filteredCallback3, this, std::placeholders::_1));
     }
 
     if (has_0 && has_1) {
         RCLCPP_INFO(this->get_logger(), 
             "Running BOTH pipelines: Image detection + LiDAR+Image fusion");
-    } else if (has_0) {
-        RCLCPP_INFO(this->get_logger(), "Running ONLY Image detection");
-    } else if (has_1) {
-        RCLCPP_INFO(this->get_logger(), "Running ONLY LiDAR+Image fusion");
-    } else {
-        RCLCPP_WARN(this->get_logger(), "No valid methods specified!");
+        rclcpp::QoS qos_profile(1);
+        qos_profile.best_effort();
+        subscription2_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+            "livox/filtered_lidar", 10,
+            std::bind(&Detection::bboxcreater, this, std::placeholders::_1));
+        subscription3_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
+            "camera/image_compressed", qos_profile,
+            std::bind(&Detection::filteredCallback3, this, std::placeholders::_1));
+        subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
+            "camera/image_compressed", qos_profile,
+            std::bind(&Detection::Detecter, this, std::placeholders::_1));
     }
-
     // if (std::find(input_for_method.begin(), input_for_method.end(), 1) != input_for_method.end() && !i_want_to)
     // {
     //     subscription2_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -87,48 +93,30 @@ Detection::Detection() : Node("detection_node")
     RCLCPP_INFO(this->get_logger(), "Detection node initialized");
 }
 
-void Detection::filteredCallback(
-    const sensor_msgs::msg::CompressedImage::ConstSharedPtr& compressed_msg,
-    const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-    if (initial)
-    {
-        initial = false;
-        detector_manager_->filteredDetect(compressed_msg, msg);
-        timer_->syn_start("filtered detection");
-    }
-    else
-    {
-        detector_manager_->filteredDetect(compressed_msg, msg);
-        std::cout << "Time passed for Callback: " << timer_->syn_stop("filtered detection");
-        timer_->syn_start("filtered detection");
-    }    
-} 
-void Detection::filteredCallback2(
-    const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-    RCLCPP_INFO(this->get_logger(), "we are inside filteredCallback2");
-    detector_manager_->filteredDetect2(msg);
-}
-
 void Detection::filteredCallback3(
     const sensor_msgs::msg::CompressedImage::ConstSharedPtr& compressed_msg)
 {
+    img_counter++;
+    std::cout << "Image Count: " << img_counter << std::endl;
     static size_t call_count = 0;
     call_count++;
     RCLCPP_INFO(this->get_logger(), "Callback #%zu", call_count);
 
     rclcpp::Time img_time(compressed_msg->header.stamp);
 
-    if(!first_image_received_) {
+    if(!first_image_received_) { 
+        timer_->syn_start("General Timer: ");
         first_image_time_ = img_time;
         first_image_received_ = true;
         RCLCPP_INFO(this->get_logger(),
             "First Image: abs_time=%.3f, relative=0.000",
             img_time.seconds());
     }
-    
-    // ✅ SIMPLE: Image relative to first image
+    else{
+        std::cout << "General Timer: " << timer_->syn_stop("General Timer: ") << std::endl;
+        timer_->syn_start("General Timer: ");
+    }
+
     double img_relative = (img_time - first_image_time_).seconds();
 
     std::vector<std::vector<float>> matched_bboxes;
@@ -142,27 +130,26 @@ void Detection::filteredCallback3(
             "Looking: Image@%.3fs (image timeline) | Cache: %zu entries",
             img_relative, bbox_cache_.size());
         
-        // ✅ CRITICAL: Compare RELATIVE times directly
-        // Both start at 0 for their first message
-        for (const auto& cached : bbox_cache_) {
-            // Both are seconds since first message of their type
-            double time_diff = std::abs(img_relative - cached.relative_time);
+
+        if (!bbox_cache_.empty())
+        {
+            double time_diff = std::abs(img_relative - bbox_cache_[0].relative_time);
             
             RCLCPP_INFO(this->get_logger(),
                 "  LiDAR: @%.3fs (lidar timeline) Δ=%.3fs (%.1fms)",
-                cached.relative_time, time_diff, time_diff * 1000.0);
+                bbox_cache_[0].relative_time, time_diff, time_diff * 1000.0);
             
             if (time_diff < best_time_diff && time_diff < 5.0) {  // 5 second tolerance for now
                 best_time_diff = time_diff;
-                matched_bboxes = cached.bboxes;
-                matched_relative_time = cached.relative_time;
+                matched_bboxes = bbox_cache_[0].bboxes;
+                matched_relative_time = bbox_cache_[0].relative_time;
             }
         }
     }
 
     if (!matched_bboxes.empty()) {
         RCLCPP_INFO(this->get_logger(), 
-            "✅ MATCHED: Image@%.3fs ↔ LiDAR@%.3fs Δt=%.1fms, %zu bboxes",
+            "MATCHED: Image@%.3fs ↔ LiDAR@%.3fs Δt=%.1fms, %zu bboxes",
             img_relative,
             matched_relative_time,
             best_time_diff * 1000.0,
@@ -172,26 +159,32 @@ void Detection::filteredCallback3(
 
     } else {
         RCLCPP_WARN(this->get_logger(), 
-            "❌ NO MATCH for Image@%.3fs. Best Δt=%.1fms > 5s tolerance",
+            "NO MATCH for Image@%.3fs. Best Δt=%.1fms > 5s tolerance",
             img_relative, best_time_diff * 1000.0);
     }
+    
 }
 
 std::vector<std::vector<float>> Detection::bboxcreater(
     const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
     auto bbox_array = detector_manager_->filteredDetect3Helper(msg);   
+    std::cout << "bbox size:" << bbox_array.size() << std::endl;
     rclcpp::Time lidar_time(msg->header.stamp);
-
+    lidar_counter++;
+    std::cout << "Lidar Counter: " << lidar_counter << std::endl;
     if (!first_lidar_received_) {
+        //timer_->syn_start("BboxCreater");
         first_lidar_time_ = lidar_time;
         first_lidar_received_ = true;
         RCLCPP_INFO(this->get_logger(), 
             "First LiDAR: abs_time=%.3f, relative=0.000",
             lidar_time.seconds());
     }
-
-    // ✅ SIMPLE: LiDAR relative to first LiDAR
+    else{
+        //std::cout << "Bbox Timer: " << timer_->syn_stop("BboxCreater") << std::endl;
+        //timer_->syn_start("BboxCreater");
+    }
     double lidar_relative = (lidar_time - first_lidar_time_).seconds();
     
     TimedBBoxArray entry;
@@ -212,7 +205,6 @@ std::vector<std::vector<float>> Detection::bboxcreater(
             "Cached LiDAR: abs=%.3f, rel=%.3f (LIDAR timeline), bboxes=%zu",
             lidar_time.seconds(), lidar_relative, bbox_array.size());
     }
-
     return bbox_array;
 }
 

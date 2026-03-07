@@ -57,6 +57,9 @@ private:
 
     geometry_msgs::msg::TransformStamped transform_L2C_, transform_C2L_, transform_L2M_;
 
+    int lidar_counter = 0;
+    int img_counter = 0;
+
     rclcpp::Time first_lidar_time_;
     rclcpp::Time first_image_time_;
     bool first_lidar_received_ = false;
@@ -66,7 +69,7 @@ private:
 
     std::deque<TimedBBoxArray> bbox_cache_;
     std::mutex cache_mutex_;
-    size_t max_cache_size_ = 10;
+    size_t max_cache_size_ = 1;
 };
 
 #endif
