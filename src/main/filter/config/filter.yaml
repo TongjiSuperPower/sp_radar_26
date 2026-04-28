@@ -1,3 +1,5 @@
 use_static_scan: false
+use_outside_filter: true
+
 map_pcd_path: "./src/main/relocalization/pcd/RMUC_25_voxel.pcd"
 scan_pcd_path: "./src/main/filter/pcd/process_2.pcd"
