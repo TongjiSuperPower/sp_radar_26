@@ -1,4 +1,4 @@
-pcd_target_path: "./src/main/relocalization/pcd/zzbuilding_last.pcd"
+pcd_target_path: "./src/main/relocalization/pcd/RMUC_25_voxel.pcd"
 topic_pointcloud: "/livox/lidar"
 topic_game_status: "/game_status"
 
@@ -20,4 +20,4 @@ init_params: [29, 9.5, 4, 196, -2, -0.0]    # enemy is red
 #---------------------------------------------------------------------------------------------
 
 filter_flag: true         # if true, filter points outside the game field
-listen_game_status: false # if true, wait until game starts
+listen_game_status: true # if true, wait until game starts
