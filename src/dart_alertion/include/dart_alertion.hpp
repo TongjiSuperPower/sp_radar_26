@@ -12,14 +12,14 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
-#include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/int8.hpp>
 #include <cv_bridge/cv_bridge.h>
 
 class DartAlertion : public rclcpp::Node
 {
 private:
     rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr sub_;
-    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pub_;
+    rclcpp::Publisher<std_msgs::msg::Int8>::SharedPtr pub_;
 
     cv::Rect region;
     double min_ContourArea;
@@ -38,6 +38,13 @@ private:
     FlashState previous_state;
     FlashState current_state;
 
+    enum GateStatus 
+    {
+        STABLE = 0,
+        OPENING = 1,
+        CLOSING = 2
+    };
+
     cv::Point last_circle_center;
     float last_circle_radius;
     bool circle_tracked;
@@ -55,7 +62,7 @@ private:
     double frame_interval; //ms
     int count = 0;
 
-    void PublishStatus(bool gate_open);
+    void PublishStatus(int gate_status);
     void ProcessFrame(const cv::Mat& frame);
     int frame_count_ = 0;
 
