@@ -19,8 +19,7 @@ private:
     cv::Mat background_;
     cv::Mat background_frame_;
 
-    radar_msgs::msg::MapRobotData::SharedPtr blue_;
-    radar_msgs::msg::MapRobotData::SharedPtr red_;
+    radar_msgs::msg::MapRobotData::SharedPtr robots_;
     rclcpp::TimerBase::SharedPtr timer_;
     rclcpp::Subscription<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_subscribe_;
 

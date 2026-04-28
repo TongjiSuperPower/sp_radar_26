@@ -219,7 +219,9 @@ namespace sp_referee
     { 
         uint8_t radar_info_chance_ : 2;
         uint8_t radar_info_istriggered_ : 1;
-        uint8_t reserved_ : 5;
+        uint8_t encryption_level_ : 2;
+        uint8_t can_modify_key_ : 1;
+        uint8_t reserved_ : 2;
     } __packed RadarInfo; // 0X020E
 
     //---------------------------------------------------//
@@ -242,18 +244,30 @@ namespace sp_referee
 
     typedef struct
     {
-        uint16_t hero_position_x;
-        uint16_t hero_position_y;
-        uint16_t engineer_position_x;
-        uint16_t engineer_position_y;
-        uint16_t infantry_3_position_x;
-        uint16_t infantry_3_position_y;
-        uint16_t infantry_4_position_x;
-        uint16_t infantry_4_position_y;
-        uint16_t infantry_5_position_x;
-        uint16_t infantry_5_position_y;
-        uint16_t sentry_position_x;
-        uint16_t sentry_position_y;
+        uint16_t opponent_hero_position_x_;
+        uint16_t opponent_hero_position_y_;
+        uint16_t opponent_engineer_position_x_;  
+        uint16_t opponent_engineer_position_y_;
+        uint16_t opponent_infantry_3_position_x_;
+        uint16_t opponent_infantry_3_position_y_;
+        uint16_t opponent_infantry_4_position_x_;
+        uint16_t opponent_infantry_4_position_y_;
+        uint16_t opponent_aerial_position_x_;
+        uint16_t opponent_aerial_position_y_;
+        uint16_t opponent_sentry_position_x_;
+        uint16_t opponent_sentry_position_y_;
+        uint16_t ally_hero_position_x_;
+        uint16_t ally_hero_position_y_;
+        uint16_t ally_engineer_position_x_;
+        uint16_t ally_engineer_position_y_;
+        uint16_t ally_infantry_3_position_x_;
+        uint16_t ally_infantry_3_position_y_;
+        uint16_t ally_infantry_4_position_x_;
+        uint16_t ally_infantry_4_position_y_;
+        uint16_t ally_aerial_position_x_;
+        uint16_t ally_aerial_position_y_;
+        uint16_t ally_sentry_position_x_;
+        uint16_t ally_sentry_position_y_;
     } __packed MapRobotData; // 0X0305
 
     typedef struct
@@ -377,7 +391,14 @@ namespace sp_referee
     typedef struct
     {
         RobotInteractionDataHeader robot_interaction_data_header_;
-        uint8_t radar_cmd_; 
+        uint8_t radar_cmd_;
+        uint8_t password_cmd_; 
+        uint8_t password_1_;
+        uint8_t password_2_;
+        uint8_t password_3_;
+        uint8_t password_4_;
+        uint8_t password_5_;
+        uint8_t password_6_;
     }__packed RadarCmd; // 0X0121
 
 }
