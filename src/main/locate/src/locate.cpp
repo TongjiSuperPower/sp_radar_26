@@ -187,7 +187,7 @@ std::vector<std::pair<pcl::PointXYZ, int>> PointcloudLocater::pointclouds_to_ima
                     }
                 }
                 car_points.push_back(std::make_pair(cloud.points[i], id));  // TODO 在目标相遇的时候，只会取最后一个投影到的框
-
+                std::cout << "point tryouts for locate: " << reprojected_points[i].x << "," << reprojected_points[i].y << std::endl;
                 int colorValue = cv::saturate_cast<int>(obj_points_features[i] / max_distance_ * 255); // 从 0 到 255; // 从 0 到 255
                 try {
                     cv::circle(img, reprojected_points[i], 10, cv::Scalar(255 - colorValue / 2, 127 + colorValue / 2, 127 + colorValue / 2), -1);

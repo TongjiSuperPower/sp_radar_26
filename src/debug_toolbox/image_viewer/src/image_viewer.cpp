@@ -41,9 +41,12 @@ public:
             "camera/image_compressed", 10,
         */
         // 订阅压缩图像话题
+
+        rclcpp::QoS qos_profile(1);
+        qos_profile.best_effort();
         compressed_sub_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
             topic,
-            10,
+            qos_profile,
             std::bind(&CompressedImageViewer::compressedImageCallback, this, std::placeholders::_1));
 
         RCLCPP_INFO(this->get_logger(), "压缩图像查看器已启动");
@@ -77,6 +80,8 @@ private:
                 RCLCPP_ERROR(this->get_logger(), "无法解码图像");
                 return;
             }
+
+            std::cout << "size of image : " << image.rows << ", " << image.cols << std::endl;
 
             // 更新帧率统计
             frame_count_++;

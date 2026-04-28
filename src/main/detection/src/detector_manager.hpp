@@ -33,6 +33,8 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/conversions.h>
 #include <pcl/common/transforms.h>
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/segmentation/extract_clusters.h>
 
 #include "deploy/vision/inference.hpp"
 #include "deploy/vision/result.hpp"
@@ -44,6 +46,8 @@
 #include <message_filters/sync_policies/approximate_time.h>
 
 #include <cv_bridge/cv_bridge.h>
+
+
 
 struct armor_result
 {
@@ -86,13 +90,14 @@ private:
         const sensor_msgs::msg::PointCloud2::SharedPtr &msg,
         const geometry_msgs::msg::TransformStamped &transform,
         pcl::PointCloud<pcl::PointXYZ> &transformed_cloud);
-    
+    pcl::PointCloud<pcl::PointXYZ>::Ptr project(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud_xyz);
+
     std::vector<cv::Point2f> points_list;
+    std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> points_list_;
+    int accumulate_frame = 2;
+    
     std::vector<std::vector<float>> bbox_list;
     cv::Point2f top_left, bottom_right;
-
-    // bbox b;
-    // time bt;
     
     cv::Mat cv_image_;
 
@@ -104,22 +109,17 @@ private:
     std::condition_variable condition_;
     std::atomic<bool> stop_;
 
-
     std::mutex mtx_;
     double max_distance_ = 0;
     int debug_flag_;
     geometry_msgs::msg::TransformStamped transform_L2C_, transform_C2L_, transform_L2M_;
 
-    // std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-    // std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
     std::vector<std::shared_ptr<deploy::DeployDet>> detectors_;
     std::shared_ptr<tools::Timer> timer_;
     //rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
     
     rclcpp::Publisher<radar_msgs::msg::CarBbox>::SharedPtr carbbox_publisher_;
-    
-
 
     double camera_time_;
     double lidar_time_;
