@@ -14,10 +14,10 @@ max_dist_sq: 3.0  # small_gicp
 # lidar2map: [tx/m, ty/m, tz/m, yaw/度, pitch/度, roll/度]
 # init_params: [0, 0, 0, 90, 0, 0]          # zzbuilding
 
-init_params: [29, 9.5, 4, 196, -2, -0.0]    # enemy is red
+# init_params: [29, 9.5, 4, 196, -2, -0.0]    # enemy is red
 # init_params: [-1, 5.5, 4, 16, -2, 0.0]   # enemy is blue
 
-# init_params: [29, 9.5, 4, 180, -2, -0.0]    # RPS && enemy is red
+init_params: [29, 9.5, 4, 180, -2, -0.0]    # RPS && enemy is red
 # init_params: [-1, 5.5, 4, 0, -2, 0.0]   # RPS &&  enemy is blue
 
 filter_flag: true         # if true, filter points outside the game field
