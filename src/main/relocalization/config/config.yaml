@@ -21,4 +21,4 @@ init_params: [29, 9.5, 4, 180, -2, -0.0]    # RPS && enemy is red
 # init_params: [-1, 5.5, 4, 0, -2, 0.0]   # RPS &&  enemy is blue
 
 filter_flag: true         # if true, filter points outside the game field
-listen_game_status: false # if true, wait until game starts
+listen_game_status: true # if true, wait until game starts

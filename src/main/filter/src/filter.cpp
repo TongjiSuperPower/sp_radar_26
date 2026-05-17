@@ -30,6 +30,7 @@ public:
         // 加载PCD文件
         auto config = YAML::LoadFile("./src/main/filter/config/filter.yaml");
         use_static_scan_ = config["use_static_scan"].as<bool>();
+        use_outside_filter_ = config["use_outside_filter"].as<bool>();
         std::string map_pcd_file;
         if (use_static_scan_)
             map_pcd_file = config["scan_pcd_path"].as<std::string>();
@@ -190,7 +191,7 @@ private:
 
         for (const auto &point_in : cloud_in->points)
         {
-            if (!use_static_scan_) {
+            if (!use_static_scan_ && use_outside_filter_) {
                 // 过滤场地外的点
                 if (is_point_outside_field(point_in) || is_point_in_base(point_in) ||
                     is_point_in_outpost(point_in) || is_point_in_dart_door(point_in) || 
@@ -237,6 +238,7 @@ private:
     // pcl::visualization::PCLVisualizer::Ptr visualizer;
 
     int use_static_scan_;
+    int use_outside_filter_;
 };
 
 int main(int argc, char **argv)

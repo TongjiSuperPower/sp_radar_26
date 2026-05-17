@@ -4,7 +4,7 @@
 #define default_fps 30
 
 #define minimap_length 700
-#define minimap_width 800
+#define minimap_width 375
 
 
 MapDrawer::MapDrawer() : Node("map_drawer")
@@ -19,36 +19,17 @@ MapDrawer::MapDrawer() : Node("map_drawer")
     std::string video_path = resource_path_ + "/video";
     std::string image_path = resource_path_ + "/images";
 
-    {
-        blue_ = std::make_shared<radar_msgs::msg::MapRobotData>();
-        red_ = std::make_shared<radar_msgs::msg::MapRobotData>();
-
-        blue_->hero_position_x = blue_->hero_position_y = 0;
-        blue_->engineer_position_x = blue_->engineer_position_y = 0;
-        blue_->infantry_3_position_x = blue_->infantry_3_position_y = 0;
-        blue_->infantry_4_position_x = blue_->infantry_4_position_y = 0;
-        blue_->infantry_5_position_x = blue_->infantry_5_position_y = 0;
-        blue_->sentry_position_x = blue_->sentry_position_y = 0;
-        red_->hero_position_x = red_->hero_position_y = 0;
-        red_->engineer_position_x = red_->engineer_position_y = 0;
-        red_->infantry_3_position_x = red_->infantry_3_position_y = 0;
-        red_->infantry_4_position_x = red_->infantry_4_position_y = 0;
-        red_->infantry_5_position_x = red_->infantry_5_position_y = 0;
-        red_->sentry_position_x = red_->sentry_position_y = 0;
-    }
+    robots_ = std::make_shared<radar_msgs::msg::MapRobotData>();
 
     // subscribe to the MapRobotData, both opponent and teammate
     map_robot_subscribe_ = this->create_subscription<radar_msgs::msg::MapRobotData>("map_robot_data", 10,
         [this] (const radar_msgs::msg::MapRobotData::SharedPtr msg) {
             std::cout << "time" << std::chrono::system_clock::now().time_since_epoch().count() << std::endl;
             timer_tool_.syn_start("map_robot_data callback");
-            if (enemy_color_ == "red") {
-                red_ = msg;
-            }
-            else {
-                blue_ = msg;
-            }
+            robots_ = msg;
             timer_tool_.syn_stop("map_robot_data callback");
+            // this->background_frame_ = background_;
+            // this->draw_robots();
         });
     if (compare) {
         cv::namedWindow("minimap", 0);
@@ -70,7 +51,7 @@ MapDrawer::MapDrawer() : Node("map_drawer")
             });
     }
     else {
-        std::string minimap_image_path = image_path + "/minimap.png";
+        std::string minimap_image_path = image_path + "/minimap_25.png";
         background_ = cv::imread(minimap_image_path);
         if (background_.empty()) {
             RCLCPP_ERROR(this->get_logger(), "Failed to open minimap image: %s", minimap_image_path.c_str());
@@ -96,23 +77,46 @@ void MapDrawer::draw_robots()
     timer_tool_.syn_start("draw robots");
     cv::resize(background_frame_, background_frame_, cv::Size(minimap_length, minimap_width));
     
-    timer_tool_.syn_start("draw blue");
-    draw_a_robot(0, blue_->hero_position_x, blue_->hero_position_y);
-    draw_a_robot(1, blue_->engineer_position_x, blue_->engineer_position_y);
-    draw_a_robot(2, blue_->infantry_3_position_x, blue_->infantry_3_position_y);
-    draw_a_robot(3, blue_->infantry_4_position_x, blue_->infantry_4_position_y);
-    draw_a_robot(4, blue_->infantry_5_position_x, blue_->infantry_5_position_y);
-    draw_a_robot(5, blue_->sentry_position_x, blue_->sentry_position_y);
-    timer_tool_.syn_stop("draw blue");
+    if (enemy_color_ == "blue"){
+        timer_tool_.syn_start("draw blue");
+        draw_a_robot(0, robots_->opponent_hero_position_x, robots_->opponent_hero_position_y);
+        draw_a_robot(1, robots_->opponent_engineer_position_x, robots_->opponent_engineer_position_y);
+        draw_a_robot(2, robots_->opponent_infantry_3_position_x, robots_->opponent_infantry_3_position_y);
+        draw_a_robot(3, robots_->opponent_infantry_4_position_x, robots_->opponent_infantry_4_position_y);
+        draw_a_robot(4, robots_->opponent_aerial_position_x, robots_->opponent_aerial_position_y);
+        draw_a_robot(5, robots_->opponent_sentry_position_x, robots_->opponent_sentry_position_y);
+        timer_tool_.syn_stop("draw blue");
 
-    timer_tool_.syn_start("draw red");
-    draw_a_robot(6, red_->hero_position_x, red_->hero_position_y);
-    draw_a_robot(7, red_->engineer_position_x, red_->engineer_position_y);
-    draw_a_robot(8, red_->infantry_3_position_x, red_->infantry_3_position_y);
-    draw_a_robot(9, red_->infantry_4_position_x, red_->infantry_4_position_y);
-    draw_a_robot(10, red_->infantry_5_position_x, red_->infantry_5_position_y);
-    draw_a_robot(11, red_->sentry_position_x, red_->sentry_position_y);
-    timer_tool_.syn_stop("draw red");
+        timer_tool_.syn_start("draw red");
+        draw_a_robot(6, robots_->ally_hero_position_x, robots_->ally_hero_position_y);
+        draw_a_robot(7, robots_->ally_engineer_position_x, robots_->ally_engineer_position_y);
+        draw_a_robot(8, robots_->ally_infantry_3_position_x, robots_->ally_infantry_3_position_y);
+        draw_a_robot(9, robots_->ally_infantry_4_position_x, robots_->ally_infantry_4_position_y);
+        draw_a_robot(10, robots_->ally_aerial_position_x, robots_->ally_aerial_position_y);
+        draw_a_robot(11, robots_->ally_sentry_position_x, robots_->ally_sentry_position_y);
+        timer_tool_.syn_stop("draw red");
+    }
+
+    if (enemy_color_ == "red"){
+        timer_tool_.syn_start("draw red");
+        draw_a_robot(0, robots_->opponent_hero_position_x, robots_->opponent_hero_position_y);
+        draw_a_robot(1, robots_->opponent_engineer_position_x, robots_->opponent_engineer_position_y);
+        draw_a_robot(2, robots_->opponent_infantry_3_position_x, robots_->opponent_infantry_3_position_y);
+        draw_a_robot(3, robots_->opponent_infantry_4_position_x, robots_->opponent_infantry_4_position_y);
+        draw_a_robot(4, robots_->opponent_aerial_position_x, robots_->opponent_aerial_position_y);
+        draw_a_robot(5, robots_->opponent_sentry_position_x, robots_->opponent_sentry_position_y);
+        timer_tool_.syn_stop("draw red");
+
+        timer_tool_.syn_start("draw blue");
+        draw_a_robot(6, robots_->ally_hero_position_x, robots_->ally_hero_position_y);
+        draw_a_robot(7, robots_->ally_engineer_position_x, robots_->ally_engineer_position_y);
+        draw_a_robot(8, robots_->ally_infantry_3_position_x, robots_->ally_infantry_3_position_y);
+        draw_a_robot(9, robots_->ally_infantry_4_position_x, robots_->ally_infantry_4_position_y);
+        draw_a_robot(10, robots_->ally_aerial_position_x, robots_->ally_aerial_position_y);
+        draw_a_robot(11, robots_->ally_sentry_position_x, robots_->ally_sentry_position_y);
+        timer_tool_.syn_stop("draw blue");
+    }
+    
 
     // cv::Mat rotated_frame;
     // cv::rotate(background_frame_, rotated_frame, cv::ROTATE_90_COUNTERCLOCKWISE);
@@ -125,13 +129,13 @@ void MapDrawer::draw_robots()
 
 void MapDrawer::draw_a_robot(int id, int x, int y)
 {
-    const int map_length = 700, map_width = 800;
+    const int map_length = 2800, map_width = 1500;
 
     // const int map_length = 1150, map_width = 650;
     // A car with x = 0 and y = 0 represent it isn't been discovered, and prevent over range.
     int x_on_map = 1.0 * x / map_length * minimap_length;
     int y_on_map = (1 - 1.0 * y / map_width)  * minimap_width;
-    if (x_on_map <= 50 || x_on_map >= minimap_length || y_on_map <= 0 || y_on_map >= minimap_width - 50) {  
+    if (x_on_map <= 23 || x_on_map >= minimap_length || y_on_map <= 0 || y_on_map >= minimap_width - 23) {  
         return;
     }
 
@@ -168,7 +172,25 @@ void MapDrawer::draw_a_robot(int id, int x, int y)
         int fontFace = cv::FONT_HERSHEY_SIMPLEX;
         double fontScale = 1.3;
         int thickness = 2;
-        std::string text = std::to_string(id % 6 + 1);
+        std::string text = std::to_string(id % 6 + 1);if (enemy_color_ == "blue"){
+        timer_tool_.syn_start("draw blue");
+        draw_a_robot(0, robots_->opponent_hero_position_x, robots_->opponent_hero_position_y);
+        draw_a_robot(1, robots_->opponent_engineer_position_x, robots_->opponent_engineer_position_y);
+        draw_a_robot(2, robots_->opponent_infantry_3_position_x, robots_->opponent_infantry_3_position_y);
+        draw_a_robot(3, robots_->opponent_infantry_4_position_x, robots_->opponent_infantry_4_position_y);
+        draw_a_robot(4, robots_->opponent_aerial_position_x, robots_->opponent_aerial_position_y);
+        draw_a_robot(5, robots_->opponent_sentry_position_x, robots_->opponent_sentry_position_y);
+        timer_tool_.syn_stop("draw blue");
+
+        timer_tool_.syn_start("draw red");
+        draw_a_robot(6, robots_->ally_hero_position_x, robots_->ally_hero_position_y);
+        draw_a_robot(7, robots_->ally_engineer_position_x, robots_->ally_engineer_position_y);
+        draw_a_robot(8, robots_->ally_infantry_3_position_x, robots_->ally_infantry_3_position_y);
+        draw_a_robot(9, robots_->ally_infantry_4_position_x, robots_->ally_infantry_4_position_y);
+        draw_a_robot(10, robots_->ally_aerial_position_x, robots_->ally_aerial_position_y);
+        draw_a_robot(11, robots_->ally_sentry_position_x, robots_->ally_sentry_position_y);
+        timer_tool_.syn_stop("draw red");
+    }
         cv::Size text_size = cv::getTextSize(text, fontFace, fontScale, thickness, nullptr);
         cv::Point org(x_on_map - (text_size.width) / 2, y_on_map + (text_size.height) / 2);
         for (int x = -outline_thickness; x <= outline_thickness; x += outline_thickness) {

@@ -16,7 +16,7 @@ DartAlertion::DartAlertion()
       is_tracking_move(false)
 {
     sub_ = this->create_subscription<sensor_msgs::msg::CompressedImage>("camera/image_compressed", 10, std::bind(&DartAlertion::callback, this, std::placeholders::_1));
-    pub_ = this->create_publisher<std_msgs::msg::Bool>("dart_gate_status", 10);
+    pub_ = this->create_publisher<std_msgs::msg::Int8>("dart_gate_status", 10);
 
     RCLCPP_INFO(this->get_logger(), "DartAlertion node initialized");
 }
@@ -78,29 +78,29 @@ void DartAlertion::AnalyzeMove()
     int start_y = circle_center_history.front().y;
     int end_y = circle_center_history.back().y;
     int change = start_y - end_y;
-    bool is_opening = false;
+    int gate_status = STABLE;
 
     count++;
     std::cout << "change: " << change << std::endl;
     if (change > 5)
     {
-        is_opening = true;
+        gate_status = OPENING;
         is_alert_pub = true;
         std::cout << "========================================" << std::endl;
         std::cout << "!!! Dart Gate is Opening !!!" << std::endl;
         std::cout << "========================================" << std::endl;
-        PublishStatus(true);
+        PublishStatus(gate_status);
     }
     else if (change < -5)
     {
-        is_opening = false;
+        gate_status = CLOSING;
         is_alert_pub = true;
         std::cout << "========================================" << std::endl;
         std::cout << "!!! Dart Gate is Closing !!!" << std::endl;
         std::cout << "========================================" << std::endl;
-        PublishStatus(true);
+        PublishStatus(gate_status);
     }
-    else PublishStatus(false);
+    else PublishStatus(gate_status);
 
     is_tracking_move = false;
     circle_center_history.clear();
@@ -123,17 +123,23 @@ void DartAlertion::ProcessFrame(const cv::Mat& frame)
     }
 
     if (is_tracking_move) UpdateMoveTracking(circle_center);
-    else PublishStatus(false);
+    else PublishStatus(STABLE);
 
     // Debugging
     frame_count_++;
 }
 
-void DartAlertion::PublishStatus(bool gate_open){
-    auto msg = std_msgs::msg::Bool();
-    msg.data = gate_open;
+void DartAlertion::PublishStatus(int gate_status){
+    auto msg = std_msgs::msg::Int8();
+    msg.data = gate_status;
     pub_->publish(msg);
-    RCLCPP_INFO(this->get_logger(), "Dart gate status published: %s", gate_open ? "OPENING/CLOSING" : "STABLE");
+    if (gate_status == OPENING) {
+        RCLCPP_INFO(this->get_logger(), "Dart gate status published: OPENING");
+    } else if (gate_status == CLOSING) {
+        RCLCPP_INFO(this->get_logger(), "Dart gate status published: CLOSING");
+    } else {
+        RCLCPP_INFO(this->get_logger(), "Dart gate status published: STABLE");
+    }
 }
 
 double DartAlertion::CalculateCircularity(const std::vector<cv::Point>& contour)

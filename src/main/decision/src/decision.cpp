@@ -128,6 +128,8 @@ void DecisionNode::pushRadarCmd(int times)
         radar_cmd.header.stamp = this->now();
         radar_cmd_cnt_ = t;
         radar_cmd.radar_cmd = radar_cmd_cnt_;
+        radar_cmd.password_cmd = 0;
+        for (int i = 0; i < 6; ++i) radar_cmd.password[i] = i;
         radar_cmd_queue_.push(radar_cmd);
     }
 }
@@ -214,15 +216,22 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
     auto result = tracker_manager_.callback(msg);
 
     map_robot_data_pc_ref_ = radar_msgs::msg::MapRobotData();
-    uint16_t* p = &map_robot_data_pc_ref_.hero_position_x;
+    uint16_t* p = &map_robot_data_pc_ref_.opponent_hero_position_x;
     for (auto& car : result->cars) {
-        for (int id = 0; id < 6; id++) {
-            if (car.class_id == id + 6 * (enemy_ == "red")) {
-                *(p + id * 2) = 100 * car.x;
-                *(p + id * 2 + 1) = 100 * car.y;
-            }
+        int id;
+        if (enemy_ == "blue")
+        {
+            id = car.class_id;
         }
+        else
+        {
+            if (car.class_id >= 6) id = car.class_id - 6;
+            else id = car.class_id + 6;
+        }
+        *(p + id * 2) = 100 * car.x;
+        *(p + id * 2 + 1) = 100 * car.y;
     }
+    pubMapRobotData();
 }
 
 int main(int argc, char **argv)

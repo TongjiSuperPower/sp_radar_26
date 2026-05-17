@@ -12,6 +12,8 @@ documents
 records
 **.pcd
 **.mp4
+**.avi
 **.STL
 
 src/debug_toolbox/minimap/resource/images/zzzbuilding.png
+src/debug_toolbox/minimap/resource/images/garage.jpg

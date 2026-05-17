@@ -2,11 +2,15 @@
 #include "../include/check.h"
 #include "../include/data.h"
 #include "../include/protocol.h"
+#include <rclcpp/rclcpp.hpp>
 
 namespace sp_referee
 {
     void Referee::write(uint16_t write_cmd, uint16_t child_cmd)
     {
+        RCLCPP_INFO(rclcpp::get_logger("Referee"), "write() called: write_cmd=0x%04X (%d), child_cmd=0x%04X (%d)",
+                    write_cmd, write_cmd, child_cmd, child_cmd);
+
         int data_len = 0;
         int frame_len = 0;
         switch (write_cmd)
@@ -15,6 +19,7 @@ namespace sp_referee
         {
             if (robot_info_.robot_type_ == "radar")
             {
+                RCLCPP_INFO(rclcpp::get_logger("Referee"), "Robot type is radar, child_cmd=0x%04X", child_cmd);
                 switch (child_cmd)
                 {
                 case sp_referee::RADAR_CMD_CMD:
@@ -26,60 +31,67 @@ namespace sp_referee
                     radar_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
                     radar_cmd.robot_interaction_data_header_.receiver_id_ = 0x8080;
                     radar_cmd.radar_cmd_ = radar_cmd_ref_.radar_cmd;
+                    radar_cmd.password_cmd_ = radar_cmd_ref_.password_cmd;
+                    radar_cmd.password_1_ = radar_cmd_ref_.password[0];
+                    radar_cmd.password_2_ = radar_cmd_ref_.password[1];
+                    radar_cmd.password_3_ = radar_cmd_ref_.password[2];
+                    radar_cmd.password_4_ = radar_cmd_ref_.password[3];
+                    radar_cmd.password_5_ = radar_cmd_ref_.password[4];
+                    radar_cmd.password_6_ = radar_cmd_ref_.password[5];
+
                     pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
                     break;
                 }
                 case sp_referee::RADAR_ENEMY_HERO_POSITION_CMD:
                 {
-                    // data_len = static_cast<int>(sizeof(sp_referee::RadarCmd));
-                    // frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
-                    // sp_referee::RadarCmd radar_cmd;
-                    // radar_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_CMD_CMD;
-                    // radar_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
-                    // radar_cmd.robot_interaction_data_header_.receiver_id_ = 0x8080;
-                    // radar_cmd.radar_cmd_ = radar_cmd_ref_.radar_cmd;
-                    // pack(reinterpret_cast<uint8_t*>(&tx_buffer_), reinterpret_cast<uint8_t*>(&radar_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
-                    // break;
                 }
                 case sp_referee::RADAR_ENEMY_DART_WARNING_CMD:
                 {
-                    // data_len = static_cast<int>(sizeof(sp_referee::RadarCmd));
-                    // frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
-                    // sp_referee::RadarCmd radar_cmd;
-                    // radar_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_CMD_CMD;
-                    // radar_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
-                    // radar_cmd.robot_interaction_data_header_.receiver_id_ = 0x8080;
-                    // radar_cmd.radar_cmd_ = radar_cmd_ref_.radar_cmd;
-                    // pack(reinterpret_cast<uint8_t*>(&tx_buffer_), reinterpret_cast<uint8_t*>(&radar_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
-                    // break;
+                    
                 }
+                default:
+                    RCLCPP_WARN(rclcpp::get_logger("Referee"), "Unknown child_cmd for radar: 0x%04X", child_cmd);
+                    break;
                 }
                 break;
             }
-            // else if (robot_info_.robot_type_ == "sentry")
-            // {
-            //     break;
-            // }
-            // else
-            //     break;
+            else
+            {
+                RCLCPP_DEBUG(rclcpp::get_logger("Referee"), "Robot type is not radar (%s), skipping ROBOT_INTERACTIVE_DATA_CMD",
+                             robot_info_.robot_type_.c_str());
+                break;
+            }
         }
         case sp_referee::MAP_ROBOT_DATA_CMD:
         {
             data_len = sizeof(sp_referee::MapRobotData);
             frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
             sp_referee::MapRobotData map_robot_data;
-            map_robot_data.hero_position_x = map_robot_data_ref_.hero_position_x;
-            map_robot_data.hero_position_y = map_robot_data_ref_.hero_position_y;
-            map_robot_data.engineer_position_x = map_robot_data_ref_.engineer_position_x;
-            map_robot_data.engineer_position_y = map_robot_data_ref_.engineer_position_y;
-            map_robot_data.infantry_3_position_x = map_robot_data_ref_.infantry_3_position_x;
-            map_robot_data.infantry_3_position_y = map_robot_data_ref_.infantry_3_position_y;
-            map_robot_data.infantry_4_position_x = map_robot_data_ref_.infantry_4_position_x;
-            map_robot_data.infantry_4_position_y = map_robot_data_ref_.infantry_4_position_y;
-            map_robot_data.infantry_5_position_x = map_robot_data_ref_.infantry_5_position_x;
-            map_robot_data.infantry_5_position_y = map_robot_data_ref_.infantry_5_position_y;
-            map_robot_data.sentry_position_x = map_robot_data_ref_.sentry_position_x;
-            map_robot_data.sentry_position_y = map_robot_data_ref_.sentry_position_y;
+            map_robot_data.opponent_hero_position_x_ = map_robot_data_ref_.opponent_hero_position_x;
+            map_robot_data.opponent_hero_position_y_ = map_robot_data_ref_.opponent_hero_position_y;
+            map_robot_data.opponent_engineer_position_x_ = map_robot_data_ref_.opponent_engineer_position_x;
+            map_robot_data.opponent_engineer_position_y_ = map_robot_data_ref_.opponent_engineer_position_y;
+            map_robot_data.opponent_infantry_3_position_x_ = map_robot_data_ref_.opponent_infantry_3_position_x;
+            map_robot_data.opponent_infantry_3_position_y_ = map_robot_data_ref_.opponent_infantry_3_position_y;
+            map_robot_data.opponent_infantry_4_position_x_ = map_robot_data_ref_.opponent_infantry_4_position_x;
+            map_robot_data.opponent_infantry_4_position_y_ = map_robot_data_ref_.opponent_infantry_4_position_y;
+            map_robot_data.opponent_aerial_position_x_ = map_robot_data_ref_.opponent_aerial_position_x;
+            map_robot_data.opponent_aerial_position_y_ = map_robot_data_ref_.opponent_aerial_position_y;
+            map_robot_data.opponent_sentry_position_x_ = map_robot_data_ref_.opponent_sentry_position_x;
+            map_robot_data.opponent_sentry_position_y_ = map_robot_data_ref_.opponent_sentry_position_y;
+            map_robot_data.ally_hero_position_x_ = map_robot_data_ref_.ally_hero_position_x;
+            map_robot_data.ally_hero_position_y_ = map_robot_data_ref_.ally_hero_position_y;
+            map_robot_data.ally_engineer_position_x_ = map_robot_data_ref_.ally_engineer_position_x;
+            map_robot_data.ally_engineer_position_y_ = map_robot_data_ref_.ally_engineer_position_y;
+            map_robot_data.ally_infantry_3_position_x_ = map_robot_data_ref_.ally_infantry_3_position_x;
+            map_robot_data.ally_infantry_3_position_y_ = map_robot_data_ref_.ally_infantry_3_position_y;
+            map_robot_data.ally_infantry_4_position_x_ = map_robot_data_ref_.ally_infantry_4_position_x;
+            map_robot_data.ally_infantry_4_position_y_ = map_robot_data_ref_.ally_infantry_4_position_y;
+            map_robot_data.ally_aerial_position_x_ = map_robot_data_ref_.ally_aerial_position_x;
+            map_robot_data.ally_aerial_position_y_ = map_robot_data_ref_.ally_aerial_position_y;
+            map_robot_data.ally_sentry_position_x_ = map_robot_data_ref_.ally_sentry_position_x;
+            map_robot_data.ally_sentry_position_y_ = map_robot_data_ref_.ally_sentry_position_y;
+
             pack(tx_buffer_, reinterpret_cast<uint8_t *>(&map_robot_data), sp_referee::MAP_ROBOT_DATA_CMD, data_len);
             break;
         }
@@ -96,18 +108,20 @@ namespace sp_referee
         }
         default:
         {
-            // ROS_WARN("Referee command ID not found.");
+            RCLCPP_WARN(rclcpp::get_logger("Referee"), "Referee command ID 0x%04X not recognized, skipping send", write_cmd);
             break;
         }
         }
-        // last_send_data_time_ = ros::Time::now();
 
-        try
-        {
-            serial_.write(tx_buffer_, frame_len);
-        }
-        catch (serial::PortNotOpenedException &e)
-        {
+        try {
+            size_t written = serial_.write(tx_buffer_, frame_len);
+            if (written != frame_len) {
+                RCLCPP_ERROR(this->get_logger(), "Incomplete write! Only %zu of %d bytes sent", written, frame_len);
+            }
+        } catch (serial::PortNotOpenedException &e) {
+            RCLCPP_ERROR(this->get_logger(), "Serial port not open: %s", e.what());
+        } catch (serial::IOException &e) {
+            RCLCPP_ERROR(this->get_logger(), "Serial IO error: %s", e.what());
         }
 
         clearTxBuffer();
@@ -115,16 +129,14 @@ namespace sp_referee
 
     void Referee::pack(uint8_t *tx_buffer, uint8_t *data, int cmd_id, int len)
     {
-        // memset(tx_buffer, 0, frame_length_);
         auto *frame_header = reinterpret_cast<sp_referee::FrameHeader *>(tx_buffer);
         frame_header->sof_ = 0xA5;
         frame_header->data_length_ = len;
         memcpy(&tx_buffer[frame_header_length_], reinterpret_cast<uint8_t *>(&cmd_id), cmd_id_length_);
         check_.appendCRC8CheckSum(tx_buffer, frame_header_length_);
         memcpy(&tx_buffer[frame_header_length_ + cmd_id_length_], data, len);
-        check_.appendCRC16CheckSum(tx_buffer, frame_header_length_ + cmd_id_length_ + len + frame_tail_length_);
-        // for (int i = 0; i < frame_header_length_ + cmd_id_length_ + len + frame_tail_length_ ; i++)
-        //     ROS_INFO_STREAM(std::hex<<int(tx_buffer[i]));
+        int total_len_before_crc16 = frame_header_length_ + cmd_id_length_ + len + frame_tail_length_;
+        check_.appendCRC16CheckSum(tx_buffer, total_len_before_crc16);
     }
 
     void Referee::clearTxBuffer()

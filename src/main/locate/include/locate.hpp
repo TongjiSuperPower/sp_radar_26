@@ -68,7 +68,6 @@ private:
     std::mutex mtx_;
 
     int debug_flag_;
-    radar_msgs::msg::MapRobotData map_robot_data_;
     
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
