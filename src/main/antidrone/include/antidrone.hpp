@@ -37,7 +37,12 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
     geometry_msgs::msg::TransformStamped transform_C2L_;
     geometry_msgs::msg::TransformStamped transform_L2C_;
+    geometry_msgs::msg::TransformStamped transform_G2W_;
+    geometry_msgs::msg::TransformStamped transform_W2G_;
+    geometry_msgs::msg::TransformStamped transform_L2W_;
+    cv::Mat T_lidar2world_;
     cv::Mat T_camera2gimbal_;
+    cv::Mat T_gimbal2world_;
     cv::Mat camera_matrix_;
     std::vector<double> dist_coeffs_;
     double real_spacing_;
