@@ -1,36 +1,46 @@
 #ifndef ANTIDRONE_HPP
 #define ANTIDRONE_HPP
 
-#include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#include <yaml-cpp/yaml.h>
-#include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/conversions.h>
-#include <pcl/common/transforms.h>
+#include <iostream>
+#include <chrono>
 #include <cmath>
 
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2/LinearMath/Transform.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <yaml-cpp/yaml.h>
+#include <opencv2/opencv.hpp>
+#include "../tools/solver.hpp"
+#include "../io/gimbal/gimbal.hpp"
+
 class Antidrone : public rclcpp::Node
+
 {
 public:
     Antidrone();
-    ~Antidrone(){}
+
 private:
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
-
     void Callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-    geometry_msgs::msg::TransformStamped transform_L2G_, transform_G2L_;
-    geometry_msgs::msg::TransformStamped tum_to_transform_stamped(std::vector<double> TUM);
-    geometry_msgs::msg::TransformStamped inverse_transform(
-        const geometry_msgs::msg::TransformStamped& transform);
-
     void transform_point_cloud(
         const sensor_msgs::msg::PointCloud2::SharedPtr &msg,
         const geometry_msgs::msg::TransformStamped &transform,
         pcl::PointCloud<pcl::PointXYZ> &transformed_cloud);
+    geometry_msgs::msg::TransformStamped tum_to_transform_stamped(std::vector<double> TUM);
+    geometry_msgs::msg::TransformStamped inverse_transform(const geometry_msgs::msg::TransformStamped &transform);
+    io::Gimbal gimbal_;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
+    geometry_msgs::msg::TransformStamped transform_C2L_;
+    geometry_msgs::msg::TransformStamped transform_L2C_;
+    cv::Mat T_camera2gimbal_;
+    cv::Mat camera_matrix_;
+    std::vector<double> dist_coeffs_;
+    double real_spacing_;
 };
 
-#endif
+#endif // ANTIDRONE_HPP
