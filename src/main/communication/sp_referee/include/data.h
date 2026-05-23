@@ -401,4 +401,9 @@ namespace sp_referee
         uint8_t password_6_;
     }__packed RadarCmd; // 0X0121
 
+    typedef struct 
+    {
+        RobotInteractionDataHeader robot_interaction_data_header_;
+        uint8_t dart_gate_status_;
+    } __packed RadarEnemyDartWarning; //0x0210 dart warning
 }

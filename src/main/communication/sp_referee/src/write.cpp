@@ -38,6 +38,9 @@ namespace sp_referee
                     radar_cmd.password_4_ = radar_cmd_ref_.password[3];
                     radar_cmd.password_5_ = radar_cmd_ref_.password[4];
                     radar_cmd.password_6_ = radar_cmd_ref_.password[5];
+                    // std::cout << "RadarCmd: radar_cmd=" << static_cast<int>(radar_cmd.radar_cmd_)
+                    //           << ", password_cmd=" << static_cast<int>(radar_cmd.password_cmd_)
+                    //           << ", password=[";
 
                     pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
                     break;
@@ -47,7 +50,45 @@ namespace sp_referee
                 }
                 case sp_referee::RADAR_ENEMY_DART_WARNING_CMD:
                 {
-                    
+                    // if (robot_info_.robot_id_ == 9)
+                    // {
+                    //     for (int i = 1; i <= 7; ++i)
+                    //     {
+                    //         if (i == 5 || i == 7) continue; // Skip sending to the sentry and infantry 5
+                    //         data_len = static_cast<int>(sizeof(sp_referee::RADAR_ENEMY_DART_WARNING_CMD));
+                    //         frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
+                    //         sp_referee::RadarEnemyDartWarning radar_enemy_dart_warning_cmd;
+                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ENEMY_DART_WARNING_CMD;
+                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
+                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.receiver_id_ = i;
+                    //         // radar_enemy_dart_warning_cmd.dart_gate_status_ = radar_enemy_dart_warning_ref_.data;
+                    //         radar_enemy_dart_warning_cmd.dart_gate_status_ = 1;
+
+                    //         std::cout << "Sending RADAR_ENEMY_DART_WARNING_CMD to robot " << i
+                    //                   << " with dart_gate_status=" << static_cast<int>(radar_enemy_dart_warning_cmd.dart_gate_status_) << std::endl;
+
+                    //         pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_enemy_dart_warning_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
+                    //     }
+                    // }
+
+                    // if (robot_info_.robot_id_ == 109)
+                    // {
+                    //     for (int i = 101; i <= 107; ++i)
+                    //     {
+                    //         if (i == 105 || i == 107) continue; // Skip sending to the sentry and infantry 5
+                    //         data_len = static_cast<int>(sizeof(sp_referee::RADAR_ENEMY_DART_WARNING_CMD));
+                    //         frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
+                    //         sp_referee::RadarEnemyDartWarning radar_enemy_dart_warning_cmd;
+                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ENEMY_DART_WARNING_CMD;
+                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
+                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.receiver_id_ = i;
+                    //         radar_enemy_dart_warning_cmd.dart_gate_status_ = radar_enemy_dart_warning_ref_.data;
+
+                    //         pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_enemy_dart_warning_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
+                    //     }
+                    // }
+
+                    // break;
                 }
                 default:
                     RCLCPP_WARN(rclcpp::get_logger("Referee"), "Unknown child_cmd for radar: 0x%04X", child_cmd);
