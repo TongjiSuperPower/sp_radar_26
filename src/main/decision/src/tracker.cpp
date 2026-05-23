@@ -173,7 +173,7 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     for (auto& tracker : trackers_) {
         auto id_and_confidences = tracker.get_id_and_confidence();
         for (auto [id, confidence] : id_and_confidences) {
-            std::cout << "id: " << id << " and confidence: " << confidence << ", now this id has confidence: " << id_confidence[id]<< std::endl;
+            // std::cout << "id: " << id << " and confidence: " << confidence << ", now this id has confidence: " << id_confidence[id]<< std::endl;
 
             if (id == -1) {
                 continue;
@@ -188,12 +188,12 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
             }
 
             for (auto [id, car] : id_car) {
-                std::cout << "id: " << id << ", position: " << car.x << std::endl;
+                // std::cout << "id: " << id << ", position: " << car.x << std::endl;
             }
         }
-        std::cout << std::endl;
+        // std::cout << std::endl;
     }
-    std::cout << "end of callback" << std::endl << std::endl << std::endl;
+    // std::cout << "end of callback" << std::endl << std::endl << std::endl;
 
 
     // // ensure each tracker at most outputs one car

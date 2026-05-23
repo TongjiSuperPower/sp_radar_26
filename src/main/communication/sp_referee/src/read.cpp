@@ -129,29 +129,29 @@ namespace sp_referee
                     }
                     case sp_referee::ROBOT_STATUS_CMD:
                     {
-                    //     sp_referee::RobotStatus robot_status_ref;
-                    //     radar_msgs::msg::RobotStatus robot_status;
-                    //     memcpy(&robot_status_ref, rx_data + 7, sizeof(sp_referee::RobotStatus));
+                        sp_referee::RobotStatus robot_status_ref;
+                        radar_msgs::msg::RobotStatus robot_status;
+                        memcpy(&robot_status_ref, rx_data + 7, sizeof(sp_referee::RobotStatus));
 
-                    //     if(robot_status_ref.robot_id_ == 0)
-                    //         break;
+                        if(robot_status_ref.robot_id_ == 0)
+                            break;
                         
-                    //     robot_status.robot_id = robot_status_ref.robot_id_;
-                    //     robot_status.robot_level = robot_status_ref.robot_level_;
-                    //     robot_status.current_hp = robot_status_ref.current_hp_;
-                    //     robot_status.maximum_hp = robot_status_ref.maximum_hp_;
-                    //     robot_status.shooter_barrel_cooling_value = robot_status_ref.shooter_barrel_cooling_value_;
-                    //     robot_status.shooter_barrel_heat_limit = robot_status_ref.shooter_barrel_heat_limit_;
-                    //     robot_status.chassis_power_limit = robot_status_ref.shooter_barrel_cooling_value_;
-                    //     robot_status.chassis_power_limit = robot_status_ref.chassis_power_limit_;
-                    //     robot_status.power_management_chassis_output = robot_status_ref.power_management_chassis_output_;
-                    //     robot_status.power_management_gimbal_output = robot_status_ref.power_management_gimbal_output_;
-                    //     robot_status.power_management_shooter_output = robot_status_ref.power_management_shooter_output_;
-                    //     robot_info_.robot_id_ = robot_status_ref.robot_id_;
-                    //     // robot_status.stamp = last_get_data_time_;
+                        robot_status.robot_id = robot_status_ref.robot_id_;
+                        robot_status.robot_level = robot_status_ref.robot_level_;
+                        robot_status.current_hp = robot_status_ref.current_hp_;
+                        robot_status.maximum_hp = robot_status_ref.maximum_hp_;
+                        robot_status.shooter_barrel_cooling_value = robot_status_ref.shooter_barrel_cooling_value_;
+                        robot_status.shooter_barrel_heat_limit = robot_status_ref.shooter_barrel_heat_limit_;
+                        robot_status.chassis_power_limit = robot_status_ref.shooter_barrel_cooling_value_;
+                        robot_status.chassis_power_limit = robot_status_ref.chassis_power_limit_;
+                        robot_status.power_management_chassis_output = robot_status_ref.power_management_chassis_output_;
+                        robot_status.power_management_gimbal_output = robot_status_ref.power_management_gimbal_output_;
+                        robot_status.power_management_shooter_output = robot_status_ref.power_management_shooter_output_;
+                        robot_info_.robot_id_ = robot_status_ref.robot_id_;
+                        // robot_status.stamp = last_get_data_time_;
 
-                    //     robot_status_pub_->publish(robot_status);
-                    //     break;
+                        robot_status_pub_->publish(robot_status);
+                        break;
                     }
                     case sp_referee::RADAR_MARK_DATA_CMD:
                     {
