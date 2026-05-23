@@ -172,6 +172,8 @@ namespace sp_referee
 
                         radar_info.radar_info_chance = radar_info_ref.radar_info_chance_;
                         radar_info.radar_info_istriggered = radar_info_ref.radar_info_istriggered_;
+                        radar_info.encryption_level = radar_info_ref.encryption_level_;
+                        radar_info.can_modify_key = radar_info_ref.can_modify_key_;
 
                         radar_info_pub_->publish(radar_info);
                         break;

@@ -33,6 +33,10 @@ DecisionNode::DecisionNode() : Node("decision_node")
         "/radar_info", 10, std::bind(&DecisionNode::radarInfoCallback, this, std::placeholders::_1));
     cars_sub_ = this->create_subscription<radar_msgs::msg::Cars>(
         "/map_robot_data_pc", 10, std::bind(&DecisionNode::CarsCallback, this, std::placeholders::_1));
+    secret_key_sub = this->create_subscription<std_msgs::msg::String>(
+        "/secret_key", 10, std::bind(&DecisionNode::secretKeyCallback, this, std::placeholders::_1));
+    dart_warning_sub_ = this->create_subscription<std_msgs::msg::Int8>(
+        "/dart_gate_status", 10, std::bind(&DecisionNode::dartWarningCallback, this, std::placeholders::_1));
 
     // map_robot_data_mono_sub_ = this->create_subscription<radar_msgs::msg::MapRobotData>(
     //     "/map_robot_data_mono", 10, std::bind(&DecisionNode::mapRobotDataMonoCallback, this, std::placeholders::_1));
@@ -77,6 +81,7 @@ void DecisionNode::pubCustomInfo()
 
 void DecisionNode::pushCustomInfo(int custom_info_id)
 {
+    static int dart_warning_count = 0;
     if (game_process_ != 4)
         return;
         
@@ -102,34 +107,38 @@ void DecisionNode::pushCustomInfo(int custom_info_id)
         }
         break;
     case DART_WARNING:
-        if (this->now() - last_dart_warning_time > rclcpp::Duration::from_seconds(30)) {
-            memcpy(&custom_info.user_data, dart_warning_data, sizeof(dart_warning_data));
-            custom_info.user_data[6] = stage_remain_time_ / 60 + '0';       // 分钟
-            custom_info.user_data[10] = stage_remain_time_ % 60 / 10 + '0'; // 秒
-            custom_info.user_data[12] = stage_remain_time_ % 60 % 10 + '0'; // 秒
-
-            RCLCPP_INFO(this->get_logger(), "Dart warning, stage remain time: %d", stage_remain_time_);
-            for (int client_index = 0; client_index < client_count; client_index++) {
-                custom_info.receiver_id = client_ids[client_index];
-                custom_info_queue_.push(custom_info);
-            }
-            last_dart_warning_time = this->now();
+        if (dart_warning_count % 2 == 0) {
+            memcpy(&custom_info.user_data, dart_warning_data1, sizeof(dart_warning_data1));
+        } else {
+            memcpy(&custom_info.user_data, dart_warning_data2, sizeof(dart_warning_data2));
         }
+        ++ dart_warning_count;
+        custom_info.user_data[6] = stage_remain_time_ / 60 + '0';       // 分钟
+        custom_info.user_data[10] = stage_remain_time_ % 60 / 10 + '0'; // 秒
+        custom_info.user_data[12] = stage_remain_time_ % 60 % 10 + '0'; // 秒
+
+        RCLCPP_INFO(this->get_logger(), "Dart warning, stage remain time: %d", stage_remain_time_);
+        for (int client_index = 0; client_index < client_count; client_index++) {
+            custom_info.receiver_id = client_ids[client_index];
+            custom_info_queue_.push(custom_info);
+        }
+        last_dart_warning_time = this->now();
+        
         break;
     default:
         break;
     }
 }
 
-void DecisionNode::pushRadarCmd(int times)
+void DecisionNode::pushRadarCmd(int times, uint8_t password_cmd ,std::string password)
 {
     for (int t = 0; t <= times; t++) {
         radar_msgs::msg::RadarCmd radar_cmd;
         radar_cmd.header.stamp = this->now();
         radar_cmd_cnt_ = t;
         radar_cmd.radar_cmd = radar_cmd_cnt_;
-        radar_cmd.password_cmd = 0;
-        for (int i = 0; i < 6; ++i) radar_cmd.password[i] = i;
+        radar_cmd.password_cmd = password_cmd;
+        for (int i = 0; i < 6; ++i) radar_cmd.password[i] = password[i];
         radar_cmd_queue_.push(radar_cmd);
     }
 }
@@ -151,13 +160,13 @@ void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPt
         {
             if(radar_cmd_cnt_ == 0)
                 pushCustomInfo(DOUBLE_VULNERABLE);
-            pushRadarCmd(1); // 第一次
+            pushRadarCmd(1, 0, secret_key_); // 第一次
         }
         if (stage_remain_time_ < (4 * 60 + 1) && stage_remain_time_ > (3 * 60 + 29)) // 4min0s~3min30s
         {
             if(radar_cmd_cnt_ == 1 || radar_cmd_cnt_ == 0)
                 pushCustomInfo(DOUBLE_VULNERABLE);
-            pushRadarCmd(2); // 第二次
+            pushRadarCmd(2, 0, secret_key_); // 第二次
         }
     }
 }
@@ -183,7 +192,7 @@ void DecisionNode::eventDataCallback(const radar_msgs::msg::EventData::ConstPtr 
     {
         if (is_small_energy_machine_activated_ || is_big_energy_machine_activated_)
         {
-            pushRadarCmd(2);
+            pushRadarCmd(2, 0, secret_key_); // 小能量机关或大能量机关被触发，发布双倍易伤
         }
     }
 }
@@ -204,14 +213,14 @@ void DecisionNode::radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr 
 
 void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
 {
-    // dart warning
-    for (auto center : msg->cars) {
-        if ((center.x > 27 && center.y > 3.9 && center.y < 4.6) ||
-            (center.x < 1 && center.y < 11.1 && center.y > 10.4)) {
-                // RCLCPP_INFO(this->get_logger(), "Dart warning");
-                pushCustomInfo(DART_WARNING);
-            }
-    }
+    // // dart warning
+    // for (auto center : msg->cars) {
+    //     if ((center.x > 27 && center.y > 3.9 && center.y < 4.6) ||
+    //         (center.x < 1 && center.y < 11.1 && center.y > 10.4)) {
+    //             // RCLCPP_INFO(this->get_logger(), "Dart warning");
+    //             pushCustomInfo(DART_WARNING);
+    //         }
+    // }
 
     auto result = tracker_manager_.callback(msg);
 
@@ -232,6 +241,22 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
         *(p + id * 2 + 1) = 100 * car.y;
     }
     pubMapRobotData();
+}
+
+void DecisionNode::secretKeyCallback(const std_msgs::msg::String::ConstPtr &msg)
+{
+    if (secret_key_ == msg->data) return; // 已经接收到过secret key了就不再更新了
+    secret_key_ = msg->data;
+    RCLCPP_INFO(this->get_logger(), "Received secret key: %s", secret_key_.c_str());
+    pushRadarCmd(radar_cmd_cnt_, 2, secret_key_);
+}
+
+void DecisionNode::dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
+{
+    if (msg->data == 1) { // 接收到敌方飞镖警告
+        RCLCPP_INFO(this->get_logger(), "Received enemy dart warning");
+        pushCustomInfo(DART_WARNING);
+    }
 }
 
 int main(int argc, char **argv)
