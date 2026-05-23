@@ -142,117 +142,16 @@ void DetectorManager::set_thread(size_t id)
     }
 }
 
-void DetectorManager::filteredDetect(
-    const sensor_msgs::msg::CompressedImage::ConstSharedPtr& compressed_msg,
-    const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-    try
-    {
-        timer_->syn_start("filter1-decode");
-        timer_->syn_start("filter1");
-
-        lidar_time_ = (1.0 * msg->header.stamp.sec * 1000 + msg->header.stamp.nanosec / 1e6);
-        camera_time_ = (1.0 * compressed_msg->header.stamp.sec * 1000 + compressed_msg->header.stamp.nanosec / 1e6);
-
-        cv::Mat cv_image = cv::imdecode(compressed_msg->data, cv::IMREAD_COLOR);
-        std::cout << "Time passed inside of decoding: " << timer_->syn_stop("filter1-decode") <<std::endl;
-        pcl::PointCloud<pcl::PointXYZ> transformed_cloud; // points in camera
-        transform_point_cloud(msg, transform_L2C_, transformed_cloud);
-        if (cv_image.empty()) 
-        {
-            //RCLCPP_ERROR(this->get_logger(), "Failed to decompress image!");
-            return;
-        }
-        pointclouds_to_image(transformed_cloud, cv_image);
-
-        if (camera_time_ != 0) {
-            static bool if_show_img = true;
-            char key;
-            if(if_show_img)
-            {
-                cv::resize(cv_image, cv_image, cv::Size(1080, 720));
-                cv::imshow("pointcloud", cv_image);
-                key = cv::waitKey(1);
-            }
-            if(key == 'q' || key == 'Q') {
-                if_show_img = false;
-                // cv::destroyWindow("pointcloud");
-                cv::destroyAllWindows();
-            }
-        }
-        std::cout << "Time passed inside of filter1: " << timer_->syn_stop("filter1") <<std::endl;
-    }
-    catch (tf2::TransformException &ex)
-    {
-        //RCLCPP_ERROR(this->get_logger(), "Could not transform: %s", ex.what());
-    }
-}
-
-void DetectorManager::filteredDetect2(
-    const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-    try
-    {
-        timer_->syn_start("filter2");
-        lidar_time_ = (1.0 * msg->header.stamp.sec * 1000 + msg->header.stamp.nanosec / 1e6);
-        //cv::Mat cv_image = cv::imdecode(compressed_msg->data, cv::IMREAD_COLOR);
-        cv_image_ = cv::Mat::zeros(2048,3072,CV_8UC3);
-        pcl::PointCloud<pcl::PointXYZ> transformed_cloud; // points in camera
-        transform_point_cloud(msg, transform_L2C_, transformed_cloud);
-        //cv::Mat cv_image = cv_bridge::toCvCopy(img, "bgr8")->image;
-        if (cv_image_.empty()) 
-        {
-            //RCLCPP_ERROR(this->get_logger(), "Failed to decompress image!");
-            return;
-        }
-        auto bbox_list_2go = pointclouds_to_image(transformed_cloud, cv_image_);
-        //std::cout << "we are here" << std::endl;
-
-        camera_time_ = 1;
-        if (camera_time_ != 0) {
-            static bool if_show_img = true;
-            char key;
-            if(if_show_img)
-            {
-                cv::resize(cv_image_, cv_image_, cv::Size(1080, 720));
-                cv::imshow("pointcloud", cv_image_);
-                key = cv::waitKey(1);
-            }
-            if(key == 'q' || key == 'Q') {
-                if_show_img = false;
-                // cv::destroyWindow("pointcloud");
-                cv::destroyAllWindows();
-            }
-        }
-        std::cout << "Time passed inside of filter: " << timer_->syn_stop("filter2") <<std::endl;
-
-    }
-    catch (tf2::TransformException &ex)
-    {
-        //RCLCPP_ERROR(this->get_logger(), "Could not transform: %s", ex.what());
-    }
-}
-//     sensor_msgs::msg::PointCloud2 transformed_msg;
-    
-//     try {
-//         auto transform = tf_buffer_->lookupTransform("camera", "lidar_frame", rclcpp::Time(0), rclcpp::Duration(1, 0));
-//         tf2::doTransform(*msg, transformed_msg, transform);
-//         pcl::fromROSMsg
-        
-//     } catch (tf2::TransformException &ex) {
-//         RCLCPP_ERROR(this->get_logger(), "Transform error in filteredCallback: %s", ex.what());
-//     }
-// }
-
 void DetectorManager::filteredDetect3(
     const sensor_msgs::msg::CompressedImage::ConstSharedPtr& compressed_msg, 
     std::vector<std::vector<float>>& goodbboxes) 
 {
+    timer_->syn_start("Filtered Detect");
     camera_time_ = (1.0 * compressed_msg->header.stamp.sec * 1000 + 
                    compressed_msg->header.stamp.nanosec / 1e6);
     
     cv::Mat cv_image = cv::imdecode(cv::Mat(compressed_msg->data), cv::IMREAD_COLOR);
-    
+
     if (cv_image.empty()) {
         return;
     }
@@ -262,17 +161,15 @@ void DetectorManager::filteredDetect3(
     if (carbbox_publisher_) {
         carbbox_publisher_->publish(car_bboxs);
     }
+
+
     
     static bool window_open = true;
     if (window_open) {
         cv::Mat display_img;
-        cv::resize(cv_image, display_img, cv::Size(1080, 720));
-        
-        // Add info text
-        std::string info = "LiDAR bboxes: " + std::to_string(goodbboxes.size()) + 
-                          " | Armors: " + std::to_string(car_bboxs.bboxs.size());
-        cv::putText(display_img, info, cv::Point(20, 40),
-                   cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
+        cv::resize(cv_image, display_img, cv::Size(960, 540));
+
+        cv::putText(display_img, "Bboxes: " + std::to_string(goodbboxes.size()), cv::Point(30, 50), cv::FONT_HERSHEY_SIMPLEX, 1.2, cv::Scalar(0, 255, 0), 2);
         
         cv::imshow("LiDAR + Armor Detection", display_img);
         
@@ -282,130 +179,249 @@ void DetectorManager::filteredDetect3(
             cv::destroyWindow("LiDAR + Armor Detection");
         }
     }
+    std::cout << "Filtered Detect Time: " << timer_->syn_stop("Filtered Detect") << std::endl;
 }
 
 
 std::vector<std::vector<float>> DetectorManager::filteredDetect3Helper(
     const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
-    cv_image_ = cv::Mat::zeros(2048,3072,CV_8UC3);
+    cv_image_ = cv::Mat::zeros(3072,2048,CV_8UC3); //2048 3072 can be tried as well
     pcl::PointCloud<pcl::PointXYZ> transformed_cloud; // points in camera
     transform_point_cloud(msg, transform_L2C_, transformed_cloud);
     return pointclouds_to_image(transformed_cloud, cv_image_);
 }
 
 std::vector<std::vector<float>> DetectorManager::pointclouds_to_image(const pcl::PointCloud<pcl::PointXYZ> &cloud, cv::Mat& img)
-{
+{  
     std::vector<std::vector<float>> local_bbox_list;
-    float litbox = 300.0;
+    float litbox = 50;
     std::lock_guard<std::mutex> lock(mtx_);
     std::vector<std::pair<pcl::PointXYZ, int>> car_points;
-    std::vector<cv::Point3f> obj_points; // 相机坐标系
+    std::vector<cv::Point3f> obj_points; // 相机坐标系 cameara coordinate
     std::vector<double> obj_points_features;
-    for (auto &point : cloud.points)
-    {
-        cv::Point3f obj_point(point.x, point.y, point.z);
-        obj_points.push_back(obj_point);
-        if (obj_point.x > max_distance_)
-        {
-            max_distance_ = obj_point.x;
-        }
-        obj_points_features.push_back(obj_point.x); // 使用x作为特征点
-    }
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZ>);
     
-    std::vector<cv::Point2f> reprojected_points; // 投影至像素平面的点
+    *cloud_ptr = cloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_across_frame(new pcl::PointCloud<pcl::PointXYZ>), 
+                                        cloud_projected(new pcl::PointCloud<pcl::PointXYZ>);
     cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64F);
     cv::Mat tvec = cv::Mat::zeros(3, 1, CV_64F);
-    //std::cout << obj_points.size() << std::endl;
+//after this to the next comment is usage of Kdtree and trying it
 
-    if (obj_points.size() > 0)
+    points_list_.push_back(cloud_ptr);
+    if (points_list_.size() > accumulate_frame)
+        points_list_.pop_front();
+    for (auto& points: points_list_) {
+        *cloud_across_frame += *points;
+    }
+
+    cloud_projected = project(cloud_across_frame);
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
+    tree->setInputCloud(cloud_projected);
+    auto time = std::chrono::system_clock::now();
+    local_bbox_list.clear();
+    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+    ec.setClusterTolerance(0.25);
+    ec.setMinClusterSize(3);
+    ec.setMaxClusterSize(1000);
+    ec.setSearchMethod(tree);
+    ec.setInputCloud(cloud_projected);
+    std::vector<pcl::PointIndices> cluster_indices;
+    ec.extract(cluster_indices);
+    for (const auto& indices : cluster_indices)
     {
-        cv::projectPoints(obj_points, rvec, tvec, camera_matrix_, distort_coeffs_, reprojected_points);
-        //double delta_time = abs(lidar_time_ - camera_time_);
-        double dist = 0;
-        local_bbox_list.clear();
-        while (reprojected_points.size() > 0)
+        std::vector<cv::Point3f> cluster_obj_points;
+        for(const auto& idx : indices.indices)
         {
-            points_list.clear();
-            i_list.clear();
-            points_list.push_back(reprojected_points[0]);
-            i_list.push_back(0);
-            cv::Point2f center = reprojected_points[0];
-            for (int i = 1; i < reprojected_points.size(); )
-            {
-                i++;
-                //std::cout << "in for loop in pointcloud_to_image" << std::endl;
-                dist = cv::norm(reprojected_points[i]-center);
-                if (dist < litbox)
-                {
-                    points_list.push_back(reprojected_points[i]);
-                    center = (reprojected_points[i]+center) * 0.5f;
-                    i_list.push_back(i);
-                }
-                else
-                {
-                    continue;
-                }
-            }
-            if (!points_list.empty()) {
-                float min_x = points_list[0].x, max_x = points_list[0].x;
-                float min_y = points_list[0].y, max_y = points_list[0].y;
-                for (const auto& point : points_list) {
-                    min_x = std::min(min_x, point.x);
-                    max_x = std::max(max_x, point.x);
-                    min_y = std::min(min_y, point.y);
-                    max_y = std::max(max_y, point.y);
-                }
-                std::vector<float> single_bbox =  {min_x, min_y, max_x, max_y};
-                if (local_bbox_list.empty())
-                {
-                    local_bbox_list.push_back(single_bbox);
-                    outside = true;
-                }
-                else
-                {
-                    for (auto& bbox:local_bbox_list)
-                    {
-                        outside = true;
-                        outside = (single_bbox[3] < bbox[1] || single_bbox[1] > bbox[3]|| single_bbox[2] < bbox[0]|| single_bbox[0] > bbox[2]); // i need to implmenet this outside of while loop bruhhhh
-                        if (!outside)
-                        {
-                            bbox[0] = std::min(single_bbox[0],bbox[0]);
-                            bbox[1] = std::min(single_bbox[1],bbox[1]);
-                            bbox[2] = std::max(single_bbox[2],bbox[2]);
-                            bbox[3] = std::max(single_bbox[3],bbox[3]);
-                            break;
-                        }
-                    }
-                    if (outside) 
-                    {
-                        local_bbox_list.push_back(single_bbox);
-                    }
-                }
-                for (int j = i_list.size() - 1; j >= 0; j--) 
-                {
-                    if (i_list[j] < reprojected_points.size()) 
-                    {
-                        reprojected_points.erase(reprojected_points.begin() + i_list[j]);
-                    }
-                } 
-            }
-        for (const auto& bbox1 : local_bbox_list)
+            const auto& point = cloud_across_frame->points[idx];
+            cv::Point3f obj_point(point.x, point.y, point.z);
+            cluster_obj_points.push_back(obj_point);
+        }
+        std::vector<cv::Point2f> cluster_reprojected_points;
+
+        if (!cluster_obj_points.empty()) 
         {
-            bool little_box = (bbox1[2]-bbox1[0] < 5 || bbox1[3]-bbox1[1] < 5);
-            if (!little_box)
-            {
-                //std::cout << bbox1[1] << std::endl;
-                cv::Point2f top_left(bbox1[0], bbox1[1]);
-                cv::Point2f bottom_right(bbox1[2], bbox1[3]);
-                cv::rectangle(img, top_left, bottom_right, cv::Scalar(0, 255, 0), 2);
+            cv::projectPoints(cluster_obj_points, rvec, tvec, camera_matrix_, distort_coeffs_, cluster_reprojected_points);
+        }
+        float min_x = cluster_reprojected_points[0].x, max_x = cluster_reprojected_points[0].x;
+        float min_y = cluster_reprojected_points[0].y, max_y = cluster_reprojected_points[0].y;
+
+        for (const auto& point : cluster_reprojected_points) 
+        {
+            min_x = std::min(min_x, point.x);
+            max_x = std::max(max_x, point.x);
+            min_y = std::min(min_y, point.y);
+            max_y = std::max(max_y, point.y);
+        }
+        float mid_x = (max_x + min_x)/2; 
+        float mid_y = (max_y + min_y)/2;
+        float dist_x = (max_x - mid_x);
+        float dist_y = (max_y - mid_y);
+
+        if (dist_y < 150 || dist_x < 150)
+        {
+            max_y = mid_y + dist_y*2;
+            min_y = mid_y - dist_y*2;
+            max_x = mid_x + dist_x*1.5;
+            min_x = mid_x - dist_x*1.5;
+        }
+
+        std::vector<float> single_bbox =  {min_x, min_y, max_x, max_y};
+        std::cout << (max_y - mid_y) << std::endl;
+        bool little_box = false;
+        if (local_bbox_list.empty() && !little_box){
+            local_bbox_list.push_back(single_bbox);
+        }
+        if (!local_bbox_list.empty()){
+            if (!little_box){
+                local_bbox_list.push_back(single_bbox);
             }
-        
         }
     }
-        return local_bbox_list;
+    for (const auto& bbox1 : local_bbox_list) 
+    {
+        cv::Point2f top_left(bbox1[0], bbox1[1]); 
+        cv::Point2f bottom_right(bbox1[2], bbox1[3]);
+        cv::rectangle(img, top_left, bottom_right, cv::Scalar(0, 255, 0), 2);
     }
-    return std::vector<std::vector<float>>();
+    return local_bbox_list;
+//hopefully until here works!
+
+//     for (auto &point : cloud.points)
+//     {
+//         cv::Point3f obj_point(point.x, point.y, point.z);
+//         obj_points.push_back(obj_point);
+//         if (obj_point.x > max_distance_)
+//         {
+//             max_distance_ = obj_point.x;
+//         }
+//         obj_points_features.push_back(obj_point.x); // 使用x作为特征点
+//     }
+    
+//     std::vector<cv::Point2f> reprojected_points; // 投影至像素平面的点
+
+//     if (obj_points.size() > 0)
+//     {
+//         cv::projectPoints(obj_points, rvec, tvec, camera_matrix_, distort_coeffs_, reprojected_points);
+//         //double delta_time = abs(lidar_time_ - camera_time_);
+//         double dist;
+//         local_bbox_list.clear();
+//         while (reprojected_points.size() > 0)  
+//         {
+//             points_list.clear();
+//             i_list.clear();
+//             points_list.push_back(reprojected_points[0]);
+//             i_list.push_back(0);
+//             cv::Point3f center = obj_points[0];
+//             for (int i = 1; i < reprojected_points.size(); i++)
+//             {
+//                 std::cout << "point (" << reprojected_points[i].x << ", " << reprojected_points[i].y << ")" << std::endl;
+//                 if (reprojected_points[i].x < 0 || reprojected_points[i].x >= 3072 || 
+//                     reprojected_points[i].y < 0 || reprojected_points[i].y >= 2048) {
+//                     std::cout << "has some points outside of view" << std::endl;
+//                     continue;
+//                 }
+//                 //std::cout << "in for loop in pointcloud_to_image" << std::endl;
+//                 float distx = abs(obj_points[i].x - center.x);
+//                 float disty = abs(obj_points[i].y - center.y);
+//                 float distz = abs(obj_points[i].z - center.z);
+
+//                 dist = sqrt(distx*distx + disty*disty + distz*distz);
+
+//                 if (dist < litbox)
+//                 {
+//                     points_list.push_back(reprojected_points[i]); 
+//                     center = (obj_points[i]+center) * 0.5f; //switched between reproj to obj
+//                     i_list.push_back(i);
+//                 }
+                
+//             }
+
+//             if (points_list.size() > 10) {
+//                 float min_x = points_list[0].x, max_x = points_list[0].x;
+//                 float min_y = points_list[0].y, max_y = points_list[0].y;
+//                 for (const auto& point : points_list) {
+//                     min_x = std::min(min_x, point.x);
+//                     max_x = std::max(max_x, point.x);
+//                     min_y = std::min(min_y, point.y);
+//                     max_y = std::max(max_y, point.y);
+//                 }
+//                 std::vector<float> single_bbox =  {min_x, min_y, max_x, max_y};
+// //                std::cout << "heyo" << min_x << "hey1" << max_x << "hey2" << min_y << max_y << std::endl;
+//                 bool little_box = (single_bbox[2]-single_bbox[0] < 0.25 || single_bbox[3]-single_bbox[1] < 0.25);
+//                 if (local_bbox_list.empty() && !little_box)
+//                 {
+//                     local_bbox_list.push_back(single_bbox);
+//                     outside = true;
+// //                    std::cout << "we are not little[1]" << std::endl;
+//                 }
+//                 if (!local_bbox_list.empty())
+//                 {
+//                     // for (auto& bbox:local_bbox_list)
+//                     // {
+//                     //     outside = true;
+//                     //     outside = (single_bbox[3] < bbox[1] || single_bbox[1] > bbox[3]|| single_bbox[2] < bbox[0]|| single_bbox[0] > bbox[2]); // i need to implmenet this outside of while loop bruhhhh
+//                     //     if (!outside)
+//                     //     {
+//                     //         bbox[0] = std::min(single_bbox[0],bbox[0]);
+//                     //         bbox[1] = std::min(single_bbox[1],bbox[1]);
+//                     //         bbox[2] = std::max(single_bbox[2],bbox[2]);
+//                     //         bbox[3] = std::max(single_bbox[3],bbox[3]);
+//                     //         break;
+//                     //     }
+//                     // }
+//                     if (outside && !little_box) 
+//                     {
+// //                    std::cout << "we are not little[1]" << std::endl;
+//                     local_bbox_list.push_back(single_bbox);
+//                     }
+//                 }
+//                 for (int j = i_list.size() - 1; j >= 0; j--) 
+//                 {
+//                     if (i_list[j] < reprojected_points.size()) 
+//                     {
+//                         reprojected_points.erase(reprojected_points.begin() + i_list[j]);
+//                     }
+//                 } 
+//             } 
+//         for (const auto& bbox1 : local_bbox_list)
+//         {
+//             // bool little_box = (bbox1[2]-bbox1[0] < 0.1 || bbox1[3]-bbox1[1] < 0.1);
+//             if (true)
+//             {
+//                 cv::Point2f top_left(bbox1[0], bbox1[1]);
+//                 cv::Point2f bottom_right(bbox1[2], bbox1[3]);
+//                 cv::rectangle(img, top_left, bottom_right, cv::Scalar(0, 255, 0), 2);
+//             }
+        
+//         }
+//     }
+//         return local_bbox_list;
+//     }
+//     return std::vector<std::vector<float>>();
+}
+
+pcl::PointCloud<pcl::PointXYZ>::Ptr DetectorManager::project(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud_xyz) {
+    
+    // 创建输出点云
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_projected(new pcl::PointCloud<pcl::PointXYZ>);
+    
+    // 设置点云属性
+    cloud_projected->width = cloud_xyz->width;
+    cloud_projected->height = cloud_xyz->height;
+    cloud_projected->is_dense = cloud_xyz->is_dense;
+    cloud_projected->points.resize(cloud_xyz->size());
+    
+    // 转换每个点
+    for (size_t i = 0; i < cloud_xyz->size(); ++i) {
+        cloud_projected->points[i].x = cloud_xyz->points[i].x;
+        cloud_projected->points[i].y = cloud_xyz->points[i].y;
+        cloud_projected->points[i].z = 0.0;
+    }
+    
+    return cloud_projected;
 }
 
 void DetectorManager::transform_point_cloud(
@@ -484,7 +500,7 @@ geometry_msgs::msg::TransformStamped DetectorManager::inverse_transform(
     inverse.child_frame_id = transform.header.frame_id;
     inverse.header.stamp = transform.header.stamp;
 
-    // 将原始变换转换为 tf2::Transform
+    // 将原始变换转换为 tf"has some points outside of view"2::Transform
     tf2::Transform tf_transform;
     tf2::fromMsg(transform.transform, tf_transform);
 

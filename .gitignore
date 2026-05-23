@@ -1,6 +1,7 @@
 build
 install
 log
+MvSDKLog
 logs
 **.engine
 **.onnx
@@ -14,4 +15,7 @@ records
 **.mp4
 **.avi
 **.STL
+**.ply
+
+src/debug_toolbox/minimap/resource/images/zzzbuilding.png
 src/debug_toolbox/minimap/resource/images/garage.jpg
