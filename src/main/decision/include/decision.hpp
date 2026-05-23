@@ -18,6 +18,8 @@
 #include "radar_msgs/msg/map_robot_data.hpp"
 #include "radar_msgs/msg/custom_info.hpp"
 #include "radar_msgs/msg/cars.hpp"
+#include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/int8.hpp"
 
 #include "tracker.hpp"
 #include "../tools/timer.hpp"
@@ -65,7 +67,7 @@ enum
     BLUE_INFANTRY_4_CLIENT = 0x0168,
     BLUE_INFANTRY_5_CLIENT = 0x0169,
     BLUE_AERIAL_CLIENT = 0x016A,
-    REFEREE_SYSTEM_SERVER = 0x8080,
+    REFEREE_SYSTEM_SERVER = 0x8080, 
 } ClientId;
 
 const uint16_t red_clinets_id[5] = {
@@ -90,11 +92,28 @@ const uint8_t double_vulnerable_data[30] = {
     0x0D, 0x50, 0x13, 0x66, 0x24, 0x4F, 0x00, 0x00, 0x00, 0x00
 }; // 雷达：*:**触发双倍易伤
 
-const uint8_t dart_warning_data[30] = {
-    0xf7, 0x96, 0xbe, 0x8f, 0x1a, 0xff, 0x2A, 0x00, 0x3A, 0x00, 
-    0x2A, 0x00, 0x2A, 0x00, 0x4c, 0x65, 0xb9, 0x65, 0xde, 0x98, 
-    0x56, 0x95, 0xf8, 0x95, 0xe8, 0x95, 0x00, 0x5f, 0x2f, 0x54
-}; // 雷达：敌方飞镖闸门开启
+const uint8_t dart_warning_data1[30] = {
+    0xF7, 0x96, 0xBE, 0x8F, 0x1A, 0xFF, 0x2A, 0x00, 0x3A, 0x00, 0x2A, 0x00, 0x2A, 0x00,  // 协议头
+    0x4C, 0x65,  // 敌
+    0xB9, 0x65,  // 方
+    0xDE, 0x98,  // 飞
+    0x56, 0x95,  // 镖
+    0x0A, 0x00,  // \n
+    0x0A, 0x00,  // \n
+    0x00, 0x5F,  // 开
+    0x2F, 0x54   // 启
+}; // 雷达：敌方飞镖\n\n开启
+const uint8_t dart_warning_data2[30] = {
+    0xF7, 0x96, 0xBE, 0x8F, 0x1A, 0xFF, 0x2A, 0x00, 0x3A, 0x00, 0x2A, 0x00, 0x2A, 0x00,  // 协议头
+    0x0A, 0x00,  // \n
+    0x4C, 0x65,  // 敌
+    0xB9, 0x65,  // 方
+    0xDE, 0x98,  // 飞
+    0x56, 0x95,  // 镖
+    0x0A, 0x00,  // \n
+    0x00, 0x5F,  // 开
+    0x2F, 0x54   // 启
+}; // 雷达：敌方飞镖\n\n开启
 
 class DecisionNode : public rclcpp::Node
 {
@@ -128,6 +147,8 @@ private:
     rclcpp::Subscription<radar_msgs::msg::RadarInfo>::SharedPtr radar_info_sub_;
     rclcpp::Subscription<radar_msgs::msg::Cars>::SharedPtr cars_sub_;
     // rclcpp::Subscription<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_mono_sub_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr secret_key_sub;
+    rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr dart_warning_sub_;
 
     radar_msgs::msg::GameStatus game_status_ref_;
     radar_msgs::msg::GameRobotHP game_robot_hp_ref_;
@@ -136,6 +157,7 @@ private:
     radar_msgs::msg::RadarInfo radar_info_ref_;
     radar_msgs::msg::MapRobotData map_robot_data_pc_ref_;
     // radar_msgs::msg::MapRobotData map_robot_data_mono_ref_;
+    std::string secret_key_;
 
     TrackerManager tracker_manager_;
     std::string enemy_;
@@ -154,13 +176,15 @@ private:
     void robotStatusCallback(const radar_msgs::msg::RobotStatus::ConstPtr &msg);
     void radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr &msg);
     void CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg);
+    void secretKeyCallback(const std_msgs::msg::String::ConstPtr &msg);
+    void dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg);
 
     void pubMapRobotData();
     void pubCustomInfo();
     void pubRadarCmd();    
 
     void pushCustomInfo(int custom_info_id);
-    void pushRadarCmd(int times);    // 发布双倍易伤，参数：次数
+    void pushRadarCmd(int times, uint8_t password_cmd ,std::string password);    // 发布双倍易伤，参数：次数
 };
 
 #endif
