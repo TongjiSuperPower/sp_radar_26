@@ -3,9 +3,18 @@
 # gamma: 0.5
 # vid_pid: "f622:d13a"
 
-camera_name: "hikrobot"
-exposure_ms: 15
+# camera_name: "hikrobot"
+# exposure_ms: 15
+# gain: 20
+# serial_number: "DA4614038"
+
+rotation_angle: 0
+
+camera_name: "hikrobot_sn"
+exposure_ms: 5
 gain: 20
+vid_pid: "2bdf:0001"
+serial_number: "DA4614038"
 
 # 5.961678 exp 20 gain 16
 # 4.154167 exp 15 gain 16
