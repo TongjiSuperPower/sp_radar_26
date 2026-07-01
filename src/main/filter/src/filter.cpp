@@ -32,6 +32,10 @@ public:
         use_static_scan_ = config["use_static_scan"].as<bool>();
         use_outside_filter_ = config["use_outside_filter"].as<bool>();
         std::string map_pcd_file;
+
+        
+        enemy_color = config["enemy_color"].as<std::string>();
+
         if (use_static_scan_)
             map_pcd_file = config["scan_pcd_path"].as<std::string>();
         else
@@ -182,9 +186,14 @@ private:
         auto is_point_in_exchange_station = [] (const pcl::PointXYZ& point)  { 
             return (point.x < 1.5 && point.y < 1.8) || (point.x > 26.5 && point.y > 13.2);
         };
-        auto is_point_in_drone = [] (const pcl::PointXYZ& point)  {
-            return (point.x < 16.4 && point.x > 0 && point.y > 8.85 && point.y < 13.5 && point.z > 1.4 && point.z < 3);
+        auto is_point_in_drone_red = [] (const pcl::PointXYZ& point)  {
+            return (point.x < 16.4 && point.x > 0 && point.y > 8.85 && point.y < 13.5 && point.z > 1.4 && point.z < 3 );
         };
+
+        auto is_point_in_drone_blue = [] (const pcl::PointXYZ& point)  {
+            return (point.x < 28 && point.x > 28 - 16.4 && point.y > 0 && point.y < 15 - 8.85 && point.z > 1.4 && point.z < 3 );
+        };
+
         auto is_point_up = [] (const pcl::PointXYZ& point)  {
             return (point.z > 1.5);
         };
@@ -207,10 +216,17 @@ private:
                 filtered_count++;
                 continue;
             }
-            if (is_point_in_drone(point_in)){
+            if (enemy_color == "red") {
+                if (is_point_in_drone_red(point_in)){
                 cloud_filtered_drone->points.push_back(point_in);
+                }
             }
-            else if(!is_point_up(point_in)){
+            else if (enemy_color == "blue"){
+                if (is_point_in_drone_blue(point_in)){
+                cloud_filtered_drone->points.push_back(point_in);
+                }
+            }
+            if(!is_point_up(point_in)){
                 cloud_filtered->points.push_back(point_in);
             }
         }
@@ -222,7 +238,6 @@ private:
 
     geometry_msgs::msg::TransformStamped transform_L2M_;
     geometry_msgs::msg::TransformStamped transform_M2L_;
-
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
     pcl::PointCloud<pcl::PointXYZ>::Ptr MAP_pcd_cloud_{new pcl::PointCloud<pcl::PointXYZ>()};
     pcl::PointCloud<pcl::PointXYZ>::Ptr MAP_pcd_cloud_voxel_{new pcl::PointCloud<pcl::PointXYZ>()};
@@ -239,6 +254,8 @@ private:
 
     int use_static_scan_;
     int use_outside_filter_;
+    std::string enemy_color;
+
 };
 
 int main(int argc, char **argv)
