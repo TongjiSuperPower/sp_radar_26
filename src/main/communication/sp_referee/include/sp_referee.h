@@ -25,7 +25,7 @@
 #include "radar_msgs/msg/map_robot_data.hpp"
 #include "radar_msgs/msg/custom_info.hpp"
 
-// #include <std_msgs/msg/int8.hpp>
+#include <std_msgs/msg/int8.hpp>
 
 namespace sp_referee
 {
@@ -93,6 +93,7 @@ namespace sp_referee
             rclcpp::Publisher<radar_msgs::msg::RobotStatus>::SharedPtr robot_status_pub_;
             rclcpp::Publisher<radar_msgs::msg::RadarMarkData>::SharedPtr radar_mark_data_pub_;
             rclcpp::Publisher<radar_msgs::msg::RadarInfo>::SharedPtr radar_info_pub_;
+            rclcpp::Publisher<std_msgs::msg::Int8>::SharedPtr radar_info_level_pub_;
             
             rclcpp::Subscription<radar_msgs::msg::RadarCmd>::SharedPtr radar_cmd_sub_;
             rclcpp::Subscription<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_sub_;

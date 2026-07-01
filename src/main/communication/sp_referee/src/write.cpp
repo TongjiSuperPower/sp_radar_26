@@ -38,9 +38,6 @@ namespace sp_referee
                     radar_cmd.password_4_ = radar_cmd_ref_.password[3];
                     radar_cmd.password_5_ = radar_cmd_ref_.password[4];
                     radar_cmd.password_6_ = radar_cmd_ref_.password[5];
-                    // std::cout << "RadarCmd: radar_cmd=" << static_cast<int>(radar_cmd.radar_cmd_)
-                    //           << ", password_cmd=" << static_cast<int>(radar_cmd.password_cmd_)
-                    //           << ", password=[";
 
                     pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
                     break;
