@@ -99,21 +99,21 @@ void MapDrawer::draw_robots()
 
     if (enemy_color_ == "red"){
         timer_tool_.syn_start("draw red");
-        draw_a_robot(0, robots_->opponent_hero_position_x, robots_->opponent_hero_position_y);
-        draw_a_robot(1, robots_->opponent_engineer_position_x, robots_->opponent_engineer_position_y);
-        draw_a_robot(2, robots_->opponent_infantry_3_position_x, robots_->opponent_infantry_3_position_y);
-        draw_a_robot(3, robots_->opponent_infantry_4_position_x, robots_->opponent_infantry_4_position_y);
-        draw_a_robot(4, robots_->opponent_aerial_position_x, robots_->opponent_aerial_position_y);
-        draw_a_robot(5, robots_->opponent_sentry_position_x, robots_->opponent_sentry_position_y);
+        draw_a_robot(6, robots_->opponent_hero_position_x, robots_->opponent_hero_position_y);
+        draw_a_robot(7, robots_->opponent_engineer_position_x, robots_->opponent_engineer_position_y);
+        draw_a_robot(8, robots_->opponent_infantry_3_position_x, robots_->opponent_infantry_3_position_y);
+        draw_a_robot(9, robots_->opponent_infantry_4_position_x, robots_->opponent_infantry_4_position_y);
+        draw_a_robot(10, robots_->opponent_aerial_position_x, robots_->opponent_aerial_position_y);
+        draw_a_robot(11, robots_->opponent_sentry_position_x, robots_->opponent_sentry_position_y);
         timer_tool_.syn_stop("draw red");
 
         timer_tool_.syn_start("draw blue");
-        draw_a_robot(6, robots_->ally_hero_position_x, robots_->ally_hero_position_y);
-        draw_a_robot(7, robots_->ally_engineer_position_x, robots_->ally_engineer_position_y);
-        draw_a_robot(8, robots_->ally_infantry_3_position_x, robots_->ally_infantry_3_position_y);
-        draw_a_robot(9, robots_->ally_infantry_4_position_x, robots_->ally_infantry_4_position_y);
-        draw_a_robot(10, robots_->ally_aerial_position_x, robots_->ally_aerial_position_y);
-        draw_a_robot(11, robots_->ally_sentry_position_x, robots_->ally_sentry_position_y);
+        draw_a_robot(0, robots_->ally_hero_position_x, robots_->ally_hero_position_y);
+        draw_a_robot(1, robots_->ally_engineer_position_x, robots_->ally_engineer_position_y);
+        draw_a_robot(2, robots_->ally_infantry_3_position_x, robots_->ally_infantry_3_position_y);
+        draw_a_robot(3, robots_->ally_infantry_4_position_x, robots_->ally_infantry_4_position_y);
+        draw_a_robot(4, robots_->ally_aerial_position_x, robots_->ally_aerial_position_y);
+        draw_a_robot(5, robots_->ally_sentry_position_x, robots_->ally_sentry_position_y);
         timer_tool_.syn_stop("draw blue");
     }
     
@@ -172,25 +172,7 @@ void MapDrawer::draw_a_robot(int id, int x, int y)
         int fontFace = cv::FONT_HERSHEY_SIMPLEX;
         double fontScale = 1.3;
         int thickness = 2;
-        std::string text = std::to_string(id % 6 + 1);if (enemy_color_ == "blue"){
-        timer_tool_.syn_start("draw blue");
-        draw_a_robot(0, robots_->opponent_hero_position_x, robots_->opponent_hero_position_y);
-        draw_a_robot(1, robots_->opponent_engineer_position_x, robots_->opponent_engineer_position_y);
-        draw_a_robot(2, robots_->opponent_infantry_3_position_x, robots_->opponent_infantry_3_position_y);
-        draw_a_robot(3, robots_->opponent_infantry_4_position_x, robots_->opponent_infantry_4_position_y);
-        draw_a_robot(4, robots_->opponent_aerial_position_x, robots_->opponent_aerial_position_y);
-        draw_a_robot(5, robots_->opponent_sentry_position_x, robots_->opponent_sentry_position_y);
-        timer_tool_.syn_stop("draw blue");
-
-        timer_tool_.syn_start("draw red");
-        draw_a_robot(6, robots_->ally_hero_position_x, robots_->ally_hero_position_y);
-        draw_a_robot(7, robots_->ally_engineer_position_x, robots_->ally_engineer_position_y);
-        draw_a_robot(8, robots_->ally_infantry_3_position_x, robots_->ally_infantry_3_position_y);
-        draw_a_robot(9, robots_->ally_infantry_4_position_x, robots_->ally_infantry_4_position_y);
-        draw_a_robot(10, robots_->ally_aerial_position_x, robots_->ally_aerial_position_y);
-        draw_a_robot(11, robots_->ally_sentry_position_x, robots_->ally_sentry_position_y);
-        timer_tool_.syn_stop("draw red");
-    }
+        std::string text = std::to_string(id % 6 + 1);
         cv::Size text_size = cv::getTextSize(text, fontFace, fontScale, thickness, nullptr);
         cv::Point org(x_on_map - (text_size.width) / 2, y_on_map + (text_size.height) / 2);
         for (int x = -outline_thickness; x <= outline_thickness; x += outline_thickness) {
