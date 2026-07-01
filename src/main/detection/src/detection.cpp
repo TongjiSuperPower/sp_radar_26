@@ -32,7 +32,7 @@ Detection::Detection() : Node("detection_node")
         rclcpp::QoS qos_profile(1);
         qos_profile.best_effort();
         subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-            "camera/image_compressed", qos_profile,
+            "camera/image_compressed", 10,
             std::bind(&Detection::Detecter, this, std::placeholders::_1));
     }
 
@@ -46,7 +46,7 @@ Detection::Detection() : Node("detection_node")
             "livox/filtered_lidar", 10,
             std::bind(&Detection::bboxcreater, this, std::placeholders::_1));
         subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-            "camera/image_compressed", qos_profile,
+            "camera/image_compressed", 10,
             std::bind(&Detection::filteredCallback3, this, std::placeholders::_1));
     }
 
@@ -59,10 +59,10 @@ Detection::Detection() : Node("detection_node")
             "livox/filtered_lidar", 10,
             std::bind(&Detection::bboxcreater, this, std::placeholders::_1));
         subscription3_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-            "camera/image_compressed", qos_profile,
+            "camera/image_compressed", 10,
             std::bind(&Detection::filteredCallback3, this, std::placeholders::_1));
         subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-            "camera/image_compressed", qos_profile,
+            "camera/image_compressed", 10,
             std::bind(&Detection::Detecter, this, std::placeholders::_1));
     }
     // if (std::find(input_for_method.begin(), input_for_method.end(), 1) != input_for_method.end() && !i_want_to)

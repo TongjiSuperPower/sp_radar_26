@@ -16,6 +16,8 @@ PointcloudLocater::PointcloudLocater()
     std::vector<double> distort_coeffs = config["distort_coeffs"].as<std::vector<double>>();
     distort_coeffs_ = cv::Mat(distort_coeffs.size(), 1, CV_64F, distort_coeffs.data()).clone();
 
+    enemy_colour = config["enemy"].as<std::string>();
+
     std::vector<double> TUM_C2L = config["TUM_camera2lidar"].as<std::vector<double>>(); // TUM: from camera to lidar
     transform_C2L_ = tum_to_transform_stamped(TUM_C2L);
     transform_L2C_ = inverse_transform(transform_C2L_); // inverse it, now from lidar to camera
@@ -26,10 +28,14 @@ PointcloudLocater::PointcloudLocater()
 
     // 订阅 "lidar" 话题，处理点云数据
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "livox/clustered_lidar", 10, std::bind(&PointcloudLocater::point_cloud_callback, this, std::placeholders::_1));
+        "/livox/clustered_lidar", 10, std::bind(&PointcloudLocater::point_cloud_callback, this, std::placeholders::_1));
     bbox_subscription_ = this->create_subscription<radar_msgs::msg::CarBbox>(
         "/car_bbox", 10, std::bind(&PointcloudLocater::bbox_callback, this, std::placeholders::_1));
+    drone_subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+        "/livox/clustered_lidar_drone", 10, std::bind(&PointcloudLocater::drone_point_cloud_callback, this, std::placeholders::_1));
     car_publisher_ = this->create_publisher<radar_msgs::msg::Cars>("/map_robot_data_pc", 10);
+    drone_publisher_ = this->create_publisher<radar_msgs::msg::Cars>("/map_drone_data_pc", 10);
+    both_publisher_ = this->create_publisher<radar_msgs::msg::Cars>("/map_both_data_pc", 10);
     for (int i = 0; i < 12; i++)
     {
         std::vector<cv::Point3f> car;
@@ -104,6 +110,58 @@ void PointcloudLocater::bbox_callback(const radar_msgs::msg::CarBbox::SharedPtr 
     // cv::resize(pointcloud_img_, pointcloud_img_, cv::Size(pointcloud_img_.cols / 2, pointcloud_img_.rows / 2));
     // cv::imshow("BBox Image", pointcloud_img_);
     // cv::waitKey(1);
+}
+
+void PointcloudLocater::drone_point_cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+    // 将 ROS 点云转换为 PCL 格式
+    pcl::PointCloud<pcl::PointXYZ> cloud;
+    pcl::fromROSMsg(*msg, cloud);
+
+    // 准备需要发布的消息
+    radar_msgs::msg::Cars drone_cars_msg;
+    drone_cars_msg.header.frame_id = "map";
+    drone_cars_msg.header.stamp = msg->header.stamp;   // 使用点云原始时间戳
+   
+    std::vector<radar_msgs::msg::Car> new_drone_cars;
+   
+    try {
+        // 获取从雷达坐标系到地图坐标系的变换
+        auto transform_L2M = tf_buffer_->lookupTransform(
+            "map", "lidar_frame", tf2::TimePointZero);
+
+        for (const auto& point : cloud.points) {
+            geometry_msgs::msg::PointStamped pt_lidar, pt_map;
+            pt_lidar.header.frame_id = "lidar_frame";
+            pt_lidar.point.x = point.x;
+            pt_lidar.point.y = point.y;
+            pt_lidar.point.z = point.z;
+
+            tf2::doTransform(pt_lidar, pt_map, transform_L2M);
+
+            radar_msgs::msg::Car drone;
+            drone.x = pt_map.point.x;
+            drone.y = pt_map.point.y;
+            if (enemy_colour == "red") {
+                drone.class_id = 10;   // 红方无人机 ID
+            } else {
+                drone.class_id = 4;   // 无人机固定 ID
+            }
+            drone_cars_msg.cars.push_back(drone);
+            new_drone_cars.push_back(drone);
+        }
+    } catch (tf2::TransformException &ex) {
+        RCLCPP_ERROR(this->get_logger(), "Drone transform error: %s", ex.what());
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        latest_drone_cars_ = std::move(new_drone_cars);
+    }
+
+    // 发布无人机目标
+    drone_publisher_->publish(drone_cars_msg);
+    publish_combined();
 }
 
 void PointcloudLocater::transform_point_cloud(
@@ -203,7 +261,10 @@ std::vector<std::pair<pcl::PointXYZ, int>> PointcloudLocater::pointclouds_to_ima
 
 void PointcloudLocater::locate(std::vector<std::pair<pcl::PointXYZ, int>> car_centers)
 {
-    std::lock_guard<std::mutex> lock(mtx_);
+    //std::lock_guard<std::mutex> lock(mtx_);
+
+    std::vector<radar_msgs::msg::Car> new_ground_cars;
+    
     radar_msgs::msg::Cars map_robot_center;
     map_robot_center.header.frame_id = "map";
     map_robot_center.header.stamp = this->now();
@@ -242,14 +303,20 @@ void PointcloudLocater::locate(std::vector<std::pair<pcl::PointXYZ, int>> car_ce
         car_center.x = car_center_in_map.point.x;
         car_center.y = car_center_in_map.point.y;
         car_center.class_id = point_id.second;
-        
+        new_ground_cars.push_back(car_center);
         map_robot_center.cars.push_back(car_center);
         // map_robot_center.cars.emplace_back(car_center_in_map.point.x, car_center_in_map.point.y, point_id.second);
         // std::string text = fmt::format("x = {0:.2}, y = {1:.2}, z = {2:.2}", car_center_in_map.point.x, car_center_in_map.point.y, car_center_in_map.point.z);
         // std::string text = fmt::format("x = {0:.2}, y = {1:.2}, z = {2:.2}", car_center_in_map.point.x, car_center_in_map.point.y, car_center_in_map.point.z);
         // cv::putText(pointcloud_img_, text, cv::Point(bbox_msg_->bboxs[i].x_max, bbox_msg_->bboxs[i].y_min), 0, 1.5, cv::Scalar(255,255,255), 2);
     }
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        latest_ground_cars_ = std::move(new_ground_cars);
+    }
+
     car_publisher_->publish(map_robot_center);
+    publish_combined();
 }
 
 geometry_msgs::msg::TransformStamped PointcloudLocater::tum_to_transform_stamped(std::vector<double> TUM)
@@ -306,6 +373,22 @@ geometry_msgs::msg::TransformStamped PointcloudLocater::inverse_transform(
     inverse.transform = tf2::toMsg(tf_inverse);
 
     return inverse;
+}
+
+void PointcloudLocater::publish_combined()
+{
+    radar_msgs::msg::Cars combined_msg;
+    combined_msg.header.frame_id = "map";
+    combined_msg.header.stamp = this->now();
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        combined_msg.cars.insert(combined_msg.cars.end(),
+                                 latest_ground_cars_.begin(), latest_ground_cars_.end());                       
+        combined_msg.cars.insert(combined_msg.cars.end(),
+                                 latest_drone_cars_.begin(), latest_drone_cars_.end());
+    }
+
+    both_publisher_->publish(combined_msg);
 }
 
 int main(int argc, char **argv)

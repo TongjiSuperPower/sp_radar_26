@@ -41,6 +41,7 @@ private:
     // 点云回调函数
     void point_cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     void bbox_callback(const radar_msgs::msg::CarBbox::SharedPtr msg);
+    void drone_point_cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     // 点云转换函数
     void transform_point_cloud(
         const sensor_msgs::msg::PointCloud2::SharedPtr &msg,
@@ -57,7 +58,10 @@ private:
     cv::Mat pointcloud_img_;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
     rclcpp::Subscription<radar_msgs::msg::CarBbox>::SharedPtr bbox_subscription_;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr drone_subscription_;
     rclcpp::Publisher<radar_msgs::msg::Cars>::SharedPtr car_publisher_;
+    rclcpp::Publisher<radar_msgs::msg::Cars>::SharedPtr drone_publisher_;
+    rclcpp::Publisher<radar_msgs::msg::Cars>::SharedPtr both_publisher_;
     cv::Mat camera_matrix_, distort_coeffs_;
     std::queue<std::vector<double>> features_queue_;
     double max_distance_ = 0;
@@ -76,6 +80,12 @@ private:
 
     tools::MaxSizeQueue<pcl::PointCloud<pcl::PointXYZ>> point_queue_;
 
+    std::vector<radar_msgs::msg::Car> latest_ground_cars_;
+    std::vector<radar_msgs::msg::Car> latest_drone_cars_;
+
+    std::string enemy_colour;
+
+    void publish_combined();
 
 };
 

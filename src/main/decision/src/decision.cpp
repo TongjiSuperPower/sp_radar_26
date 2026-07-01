@@ -32,7 +32,7 @@ DecisionNode::DecisionNode() : Node("decision_node")
     radar_info_sub_ = this->create_subscription<radar_msgs::msg::RadarInfo>(
         "/radar_info", 10, std::bind(&DecisionNode::radarInfoCallback, this, std::placeholders::_1));
     cars_sub_ = this->create_subscription<radar_msgs::msg::Cars>(
-        "/map_robot_data_pc", 10, std::bind(&DecisionNode::CarsCallback, this, std::placeholders::_1));
+        "/map_both_data_pc", 10, std::bind(&DecisionNode::CarsCallback, this, std::placeholders::_1));
     secret_key_sub = this->create_subscription<std_msgs::msg::String>(
         "/secret_key", 10, std::bind(&DecisionNode::secretKeyCallback, this, std::placeholders::_1));
     dart_warning_sub_ = this->create_subscription<std_msgs::msg::Int8>(
@@ -141,6 +141,10 @@ void DecisionNode::pushRadarCmd(int times, uint8_t password_cmd ,std::string pas
         for (int i = 0; i < 6; ++i) radar_cmd.password[i] = password[i];
         radar_cmd_queue_.push(radar_cmd);
     }
+    std::cout << "Push RadarCmd: radar_cmd=" << static_cast<int>(radar_cmd_cnt_)
+              << ", password_cmd=" << static_cast<int>(password_cmd)
+              << ", password=" << password
+              << std::endl;
 }
 
 void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPtr &msg)
@@ -245,7 +249,7 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
 
 void DecisionNode::secretKeyCallback(const std_msgs::msg::String::ConstPtr &msg)
 {
-    if (secret_key_ == msg->data) return; // 已经接收到过secret key了就不再更新了
+    //if (secret_key_ == msg->data) return; // 已经接收到过secret key了就不再更新了
     secret_key_ = msg->data;
     RCLCPP_INFO(this->get_logger(), "Received secret key: %s", secret_key_.c_str());
     pushRadarCmd(radar_cmd_cnt_, 2, secret_key_);
