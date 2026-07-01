@@ -119,6 +119,8 @@ void Cluster::callbackdrone(const sensor_msgs::msg::PointCloud2::SharedPtr msg_d
     // std::cout<<(std::chrono::system_clock::now()-time).count()<<"ms"<<std::endl;
     
     pcl::PointCloud<pcl::PointXYZ> *out_cloud_drone(new pcl::PointCloud<pcl::PointXYZ>); 
+    pcl::PointCloud<pcl::PointXYZ>::Ptr largest_cluster(new pcl::PointCloud<pcl::PointXYZ>);
+    largest_cluster->width = 0;
     for(auto it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
     {
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
@@ -129,21 +131,25 @@ void Cluster::callbackdrone(const sensor_msgs::msg::PointCloud2::SharedPtr msg_d
         cloud_cluster->width = cloud_cluster->points.size();
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
-
-        pcl::PointXYZ move_point;
-        for(auto point:cloud_cluster->points)
-        {
-            move_point.x += point.x;
-            move_point.y += point.y;
-            move_point.z += point.z;
+        if (cloud_cluster->width > largest_cluster->width) {
+            largest_cluster = cloud_cluster;
         }
-        move_point.x /= cloud_cluster->points.size();
-        move_point.y /= cloud_cluster->points.size();
-        move_point.z /= cloud_cluster->points.size();
-        if (move_point.x < 30 && abs(move_point.y) < 20) {
-            out_cloud_drone->points.push_back(move_point);      
-        }  
     }
+
+    pcl::PointXYZ largest_move_point;
+    for(auto point:largest_cluster->points)
+    {
+        largest_move_point.x += point.x;
+        largest_move_point.y += point.y;
+        largest_move_point.z += point.z;
+    }
+    largest_move_point.x /= largest_cluster->points.size();
+    largest_move_point.y /= largest_cluster->points.size();
+    largest_move_point.z /= largest_cluster->points.size();
+    if (largest_move_point.x < 30 && abs(largest_move_point.y) < 20) {
+        out_cloud_drone->points.push_back(largest_move_point);      
+    }
+
     sensor_msgs::msg::PointCloud2 output_drone;
     pcl::toROSMsg(*out_cloud_drone, output_drone);
     output_drone.header.frame_id = "livox_frame";
