@@ -1,0 +1,33 @@
+# dart_alertion_params.yaml
+region_x_ratio: 0.5
+region_y_ratio: 0.125
+region_width_ratio: 0.5
+region_height_ratio: 0.1667
+
+min_contour_area: 300
+max_contour_area: 500
+circularity_threshold: 0.5
+contour_binary_threshold: 100
+circle_reappear_brightness_threshold: 100.0
+circle_reappear_whiteness_threshold: 170.0
+
+history_size: 5
+brightness_change_threshold: 10.0
+whiteness_threshold: 170.0
+min_whiteness_for_flash: 170.0
+whiteness_change_threshold: 10.0
+
+lost_frames_max: 5
+
+min_flash_interval_ms: 50
+min_alert_interval_ms: 100
+
+move_tracking_duration_ms: 500
+max_history_points: 30
+opening_change_min: 5
+opening_change_max: 20
+closing_change_min: 5
+closing_change_max: 20
+
+circle_disappear_brightness_max: 30.0
+circle_disappear_whiteness_max: 30.0

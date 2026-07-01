@@ -12,6 +12,7 @@ find_package(std_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(image_transport REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 include_directories(
     ${OpenCV_INCLUDE_DIRS}
@@ -27,7 +28,7 @@ ament_target_dependencies(dart_alertion
     image_transport
 )
 
-target_link_libraries(dart_alertion ${OpenCV_LIBS})
+target_link_libraries(dart_alertion yaml-cpp ${OpenCV_LIBS})
 
 install(TARGETS dart_alertion
     DESTINATION lib/${PROJECT_NAME}
