@@ -18,6 +18,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RobotStatus.msg"
   "msg/RadarMarkData.msg"
   "msg/RadarInfo.msg"
+  "msg/RfInfoWave.msg"
   
   # referee_write
   "msg/RadarCmd.msg"
