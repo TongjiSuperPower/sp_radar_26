@@ -4,5 +4,4 @@ use_outside_filter: true
 map_pcd_path: "./src/main/relocalization/pcd/RMUC26.pcd"
 scan_pcd_path: "./src/main/map_scan/pcd/process_2.pcd"
 
-# enemy_color: red
 enemy_color: "blue"
