@@ -1,4 +1,4 @@
-use_camera: False
+use_camera: true
 video_path: "./src/records_2024/video/20240516BO301QL_cut.mp4"
 config_path: "./src/calibration/configs/raw/camera.yaml"
 
