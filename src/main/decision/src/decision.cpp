@@ -13,6 +13,7 @@ DecisionNode::DecisionNode() : Node("decision_node")
     radar_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarCmd>("/radar_cmd", 1);
     map_robot_data_pub_ = this->create_publisher<radar_msgs::msg::MapRobotData>("/map_robot_data", 1);
     custom_info_pub_ = this->create_publisher<radar_msgs::msg::CustomInfo>("/custom_info", 1);
+    radar_demod_config_pub_ = this->create_publisher<radar_msgs::msg::RadarParseEmWaveDemodConfig>("/rmuc/demod_config", 1);
 
     map_robot_data_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(200), std::bind(&DecisionNode::pubMapRobotData, this));   // 5Hz
@@ -33,8 +34,8 @@ DecisionNode::DecisionNode() : Node("decision_node")
         "/radar_info", 10, std::bind(&DecisionNode::radarInfoCallback, this, std::placeholders::_1));
     cars_sub_ = this->create_subscription<radar_msgs::msg::Cars>(
         "/map_both_data_pc", 10, std::bind(&DecisionNode::CarsCallback, this, std::placeholders::_1));
-    secret_key_sub = this->create_subscription<std_msgs::msg::String>(
-        "/secret_key", 10, std::bind(&DecisionNode::secretKeyCallback, this, std::placeholders::_1));
+    secret_key_sub = this->create_subscription<radar_msgs::msg::RadarParseEmWave0A06InterferenceKey>(
+        "/rmuc/rx/packet_0x0a06", 10, std::bind(&DecisionNode::secretKeyCallback, this, std::placeholders::_1));
     dart_warning_sub_ = this->create_subscription<std_msgs::msg::Int8>(
         "/dart_gate_status", 10, std::bind(&DecisionNode::dartWarningCallback, this, std::placeholders::_1));
     rf_info_wave_sub_ = this->create_subscription<radar_msgs::msg::RfInfoWave>(
@@ -207,6 +208,7 @@ void DecisionNode::robotStatusCallback(const radar_msgs::msg::RobotStatus::Const
 {
     robot_status_ref_ = *msg;
     robot_id_ = robot_status_ref_.robot_id;
+    robot_color_ = (robot_id_ >= 100) ? "blue" : "red";
 }
 
 void DecisionNode::radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr &msg)
@@ -214,7 +216,12 @@ void DecisionNode::radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr 
     radar_info_ref_ = *msg;
     radar_info_chance_ = radar_info_ref_.radar_info_chance;           // 1Byte bit[0:1]
     radar_info_istriggered_ = radar_info_ref_.radar_info_istriggered; // 1Byte bit[2]
-    // Process the radar info
+
+    // Publish DemodConfig with team color and interference level
+    radar_msgs::msg::RadarParseEmWaveDemodConfig demod_config;
+    demod_config.team = robot_color_;
+    demod_config.interference_level = radar_info_ref_.encryption_level;
+    radar_demod_config_pub_->publish(demod_config);
 }
 
 void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
@@ -249,10 +256,10 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
     pubMapRobotData();
 }
 
-void DecisionNode::secretKeyCallback(const std_msgs::msg::String::ConstPtr &msg)
+void DecisionNode::secretKeyCallback(const radar_msgs::msg::RadarParseEmWave0A06InterferenceKey::ConstPtr &msg)
 {
-    //if (secret_key_ == msg->data) return; // 已经接收到过secret key了就不再更新了
-    secret_key_ = msg->data;
+    if (secret_key_ == msg->key) return; // 已经接收到过secret key了就不再更新了
+    secret_key_ = msg->key;
     RCLCPP_INFO(this->get_logger(), "Received secret key: %s", secret_key_.c_str());
     pushRadarCmd(radar_cmd_cnt_, 2, secret_key_);
 }

@@ -19,6 +19,8 @@
 #include "radar_msgs/msg/custom_info.hpp"
 #include "radar_msgs/msg/cars.hpp"
 #include "radar_msgs/msg/rf_info_wave.hpp"
+#include "radar_msgs/msg/radar_parse_em_wave_0a06_interference_key.hpp"
+#include "radar_msgs/msg/radar_parse_em_wave_demod_config.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/int8.hpp"
 
@@ -131,6 +133,7 @@ private:
     uint8_t is_someone_in_central_highland_;
     
     uint16_t robot_id_;
+    std::string robot_color_;
 
     uint8_t radar_info_chance_;
     bool radar_info_istriggered_;
@@ -139,6 +142,7 @@ private:
     rclcpp::Publisher<radar_msgs::msg::RadarCmd>::SharedPtr radar_cmd_pub_;
     rclcpp::Publisher<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_pub_;
     rclcpp::Publisher<radar_msgs::msg::CustomInfo>::SharedPtr custom_info_pub_;
+    rclcpp::Publisher<radar_msgs::msg::RadarParseEmWaveDemodConfig>::SharedPtr radar_demod_config_pub_;
     
     rclcpp::Subscription<radar_msgs::msg::GameStatus>::SharedPtr game_status_sub_;
     rclcpp::Subscription<radar_msgs::msg::GameRobotHP>::SharedPtr game_robot_hp_sub_;
@@ -148,7 +152,7 @@ private:
     rclcpp::Subscription<radar_msgs::msg::RadarInfo>::SharedPtr radar_info_sub_;
     rclcpp::Subscription<radar_msgs::msg::Cars>::SharedPtr cars_sub_;
     // rclcpp::Subscription<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_mono_sub_;
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr secret_key_sub;
+    rclcpp::Subscription<radar_msgs::msg::RadarParseEmWave0A06InterferenceKey>::SharedPtr secret_key_sub;
     rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr dart_warning_sub_;
     rclcpp::Subscription<radar_msgs::msg::RfInfoWave>::SharedPtr rf_info_wave_sub_;
 

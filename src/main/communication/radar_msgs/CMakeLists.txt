@@ -18,7 +18,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RobotStatus.msg"
   "msg/RadarMarkData.msg"
   "msg/RadarInfo.msg"
-  "msg/RfInfoWave.msg"
   
   # referee_write
   "msg/RadarCmd.msg"
@@ -31,6 +30,16 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
   "msg/Car.msg"
   "msg/Cars.msg"
+
+  # rf_wave
+  "RadarParseEmWave0A01RobotPosition.msg"
+  "RadarParseEmWave0A02RobotHp.msg"
+  "RadarParseEmWave0A03RobotAmmo.msg"
+  "RadarParseEmWave0A04FieldStatus.msg"
+  "RadarParseEmWave0A05RobotBuff.msg"
+  "RadarParseEmWave0A06InterferenceKey.msg"
+  "RadarParseEmWaveDemodConfig.msg"
+
   DEPENDENCIES std_msgs
 )
 

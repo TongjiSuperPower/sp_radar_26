@@ -1,0 +1,13 @@
+std_msgs/Header header
+int16 hero_x
+int16 hero_y
+int16 engineer_x
+int16 engineer_y
+int16 infantry3_x
+int16 infantry3_y
+int16 infantry4_x
+int16 infantry4_y
+int16 aerial_x
+int16 aerial_y
+int16 sentry_x
+int16 sentry_y

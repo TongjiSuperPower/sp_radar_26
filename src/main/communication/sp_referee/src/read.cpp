@@ -176,7 +176,6 @@ namespace sp_referee
                         radar_info.can_modify_key = radar_info_ref.can_modify_key_;
 
                         radar_info_pub_->publish(radar_info);
-                        radar_info_level_pub_->publish(std_msgs::msg::Int8().set__data(radar_info_ref.encryption_level_));
                         break;
                     }
                     default:

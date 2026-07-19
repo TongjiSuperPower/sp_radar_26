@@ -38,7 +38,6 @@ namespace sp_referee
         robot_status_pub_ = this->create_publisher<radar_msgs::msg::RobotStatus>("/robot_status", 1);
         radar_mark_data_pub_ = this->create_publisher<radar_msgs::msg::RadarMarkData>("/radar_mark_data", 1);
         radar_info_pub_ = this->create_publisher<radar_msgs::msg::RadarInfo>("/radar_info", 1);
-        radar_info_level_pub_ = this->create_publisher<std_msgs::msg::Int8>("/radar_info_level", 1);
 
         // // velocity_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_cc_velocity", 10);
         // // remote_control_pub_ = nh_.advertise<sp_referee::RemoteControlMsg>("/rc_data", 1);
