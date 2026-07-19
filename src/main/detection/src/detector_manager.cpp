@@ -517,7 +517,9 @@ void draw_car_bbox(const radar_msgs::msg::CarBbox msg, cv::Mat& frame)
 {
     for (auto bbox : msg.bboxs)
     {
-        cv::Scalar color = (bbox.class_id < 6) ? cv::Scalar(255, 128, 0) : cv::Scalar(50, 50, 255);
+        cv::Scalar color;
+        if (bbox.class_id == -1) color = cv::Scalar(255, 0, 255);
+        else color = (bbox.class_id < 6) ? cv::Scalar(255, 128, 0) : cv::Scalar(50, 50, 255);
         if (bbox.x_min > 0 || bbox.y_min > 20 || bbox.x_max < frame.cols - 50 || bbox.y_max < frame.rows)
         {
             cv::rectangle(frame, cv::Point(bbox.x_min, bbox.y_min), cv::Point(bbox.x_max, bbox.y_max), color, 10);

@@ -1,6 +1,6 @@
 # dart_alertion_params.yaml
 region_x_ratio: 0.5
-region_y_ratio: 0.125
+region_y_ratio: 0
 region_width_ratio: 0.5
 region_height_ratio: 0.1667
 

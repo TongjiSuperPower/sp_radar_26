@@ -18,9 +18,9 @@ public:
         // 参数：订阅的话题名称
         this->declare_parameter<std::string>("topic", "camera/image_compressed");
         this->declare_parameter<bool>("show_image", true);
-        this->declare_parameter<bool>("resize_image", false);
-        this->declare_parameter<int>("resize_width", 640);
-        this->declare_parameter<int>("resize_height", 480);
+        this->declare_parameter<bool>("resize_image", true);
+        this->declare_parameter<int>("resize_width", 1500);
+        this->declare_parameter<int>("resize_height", 1000);
 
         std::string topic = this->get_parameter("topic").as_string();
         show_image_ = this->get_parameter("show_image").as_bool();

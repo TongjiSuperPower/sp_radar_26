@@ -6,8 +6,10 @@ DartAlertion::DartAlertion()
     std::string config_path = "src/dart_alertion/config/config.yaml";
     loadConfig(config_path);
 
+    rclcpp::QoS qos_profile(1);
+    qos_profile.best_effort();
     sub_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-        "camera/image_compressed", 10,
+        "camera/image_compressed", qos_profile,
         std::bind(&DartAlertion::callback, this, std::placeholders::_1));
     pub_ = this->create_publisher<std_msgs::msg::Int8>("dart_gate_status", 10);
 
@@ -432,21 +434,21 @@ bool DartAlertion::DartDetection(const cv::Mat& frame,
 
     std::stringstream state_text;
     state_text << "State: " << (current_state_ == flashing ? "Flashing" : "Normal");
-    cv::putText(display, state_text.str(), cv::Point(10,30), cv::FONT_HERSHEY_SIMPLEX, 0.7,
+    cv::putText(display, state_text.str(), cv::Point(10,50), cv::FONT_HERSHEY_SIMPLEX, 2,
                 current_state_ == flashing ? cv::Scalar(0,0,255) : cv::Scalar(0,255,0), 2);
     std::stringstream frame_text;
     frame_text << "Frame: " << frame_count_;
-    cv::putText(display, frame_text.str(), cv::Point(10,60), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255,255,255), 2);
+    cv::putText(display, frame_text.str(), cv::Point(10,100), cv::FONT_HERSHEY_SIMPLEX, 2, cv::Scalar(255,255,255), 2);
     std::stringstream bright_text;
     bright_text << "Brightness: " << static_cast<int>(circle_brightness);
-    cv::putText(display, bright_text.str(), cv::Point(10,90), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255,255,255), 2);
+    cv::putText(display, bright_text.str(), cv::Point(10,150), cv::FONT_HERSHEY_SIMPLEX, 2, cv::Scalar(255,255,255), 2);
     std::stringstream white_text;
     white_text << "Whiteness: " << static_cast<int>(circle_whiteness);
-    cv::putText(display, white_text.str(), cv::Point(10,120), cv::FONT_HERSHEY_SIMPLEX, 0.7,
+    cv::putText(display, white_text.str(), cv::Point(10,200), cv::FONT_HERSHEY_SIMPLEX, 2,
                 circle_whiteness > whiteness_threshold_ ? cv::Scalar(255,255,255) : cv::Scalar(200,200,200), 2);
     std::stringstream track_text;
     track_text << "Movement Tracking: " << (is_tracking_move_ ? "ON" : "OFF");
-    cv::putText(display, track_text.str(), cv::Point(10,150), cv::FONT_HERSHEY_SIMPLEX, 0.7,
+    cv::putText(display, track_text.str(), cv::Point(10,250), cv::FONT_HERSHEY_SIMPLEX, 2,
                 is_tracking_move_ ? cv::Scalar(0,255,255) : cv::Scalar(150,150,150), 2);
 
     if (is_alert_pub_) {
@@ -455,6 +457,8 @@ bool DartAlertion::DartDetection(const cv::Mat& frame,
                     cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0,0,255), 3);
         cv::rectangle(display, cv::Rect(0,0,display.cols,display.rows), cv::Scalar(0,0,255), 5);
     }
+
+    cv::resize(display, display, cv::Size(1080, 720));
 
     cv::imshow("Dart Gate Detection", display);
     cv::waitKey(1);

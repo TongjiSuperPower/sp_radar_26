@@ -47,12 +47,6 @@ SIMPLE_FILES = [
         "pattern": r'^(enemy:\s*)"(red|blue)"',
         "replacement": r'\1"{color}"',
     },
-    # 5. antidrone/io/configs/camera.yaml
-    {
-        "path": "src/main/antidrone/io/configs/camera.yaml",
-        "pattern": r'^(enemy_color:\s*)"(red|blue)"',
-        "replacement": r'\1"{color}"',
-    },
 ]
 
 # relocalization config 特殊处理：切换 init_params 行

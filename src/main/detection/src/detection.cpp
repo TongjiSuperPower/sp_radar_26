@@ -32,7 +32,7 @@ Detection::Detection() : Node("detection_node")
         rclcpp::QoS qos_profile(1);
         qos_profile.best_effort();
         subscription_ = this->create_subscription<sensor_msgs::msg::CompressedImage>(
-            "camera/image_compressed", 10,
+            "camera/image_compressed", qos_profile,
             std::bind(&Detection::Detecter, this, std::placeholders::_1));
     }
 
@@ -250,7 +250,7 @@ void Detection::Detecter(const sensor_msgs::msg::CompressedImage::ConstSharedPtr
 
         // frame_count = 0;
         // total_duration = 0.0f;
-        cv::resize(image, image, cv::Size(960, 540));
+        cv::resize(image, image, cv::Size(1080, 720));
         cv::imshow("detection_result", image);
         cv::waitKey(1);
     }

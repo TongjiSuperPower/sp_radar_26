@@ -11,8 +11,8 @@
 rotation_angle: 0
 
 camera_name: "hikrobot_sn"
-exposure_ms: 20
-gain: 20
+exposure_ms: 15
+gain: 23.981199
 vid_pid: "2bdf:0001"
 serial_number: "DA4614038"
 
