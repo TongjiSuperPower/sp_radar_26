@@ -18,8 +18,7 @@
 #include "radar_msgs/msg/map_robot_data.hpp"
 #include "radar_msgs/msg/custom_info.hpp"
 #include "radar_msgs/msg/cars.hpp"
-#include "radar_msgs/msg/rf_info_wave.hpp"
-#include "radar_msgs/msg/radar_parse_em_wave_0a06_interference_key.hpp"
+#include "radar_msgs/msg/radar_parse_em_wave0_a06_interference_key.hpp"
 #include "radar_msgs/msg/radar_parse_em_wave_demod_config.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/int8.hpp"
@@ -154,7 +153,6 @@ private:
     // rclcpp::Subscription<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_mono_sub_;
     rclcpp::Subscription<radar_msgs::msg::RadarParseEmWave0A06InterferenceKey>::SharedPtr secret_key_sub;
     rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr dart_warning_sub_;
-    rclcpp::Subscription<radar_msgs::msg::RfInfoWave>::SharedPtr rf_info_wave_sub_;
 
     radar_msgs::msg::GameStatus game_status_ref_;
     radar_msgs::msg::GameRobotHP game_robot_hp_ref_;
@@ -182,9 +180,8 @@ private:
     void robotStatusCallback(const radar_msgs::msg::RobotStatus::ConstPtr &msg);
     void radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr &msg);
     void CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg);
-    void secretKeyCallback(const std_msgs::msg::String::ConstPtr &msg);
+    void secretKeyCallback(const radar_msgs::msg::RadarParseEmWave0A06InterferenceKey::ConstPtr &msg);
     void dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg);
-    void rfInfoWaveCallback(const radar_msgs::msg::RfInfoWave::ConstPtr &msg);
 
     void pubMapRobotData();
     void pubCustomInfo();

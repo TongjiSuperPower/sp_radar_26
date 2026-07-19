@@ -38,10 +38,8 @@ DecisionNode::DecisionNode() : Node("decision_node")
         "/rmuc/rx/packet_0x0a06", 10, std::bind(&DecisionNode::secretKeyCallback, this, std::placeholders::_1));
     dart_warning_sub_ = this->create_subscription<std_msgs::msg::Int8>(
         "/dart_gate_status", 10, std::bind(&DecisionNode::dartWarningCallback, this, std::placeholders::_1));
-    rf_info_wave_sub_ = this->create_subscription<radar_msgs::msg::RfInfoWave>(
-        "/rf_info_wave", 10, std::bind(&DecisionNode::rfInfoWaveCallback, this, std::placeholders::_1));
 
-    // map_robot_data_mono_sub_ = this->create_subscription<radar_msgs::msg::MapRobotData>(
+    // map_robot_data_mono_sub_ = this->create_subscription<radar_msgs::msg::MapRobotData>((
     //     "/map_robot_data_mono", 10, std::bind(&DecisionNode::mapRobotDataMonoCallback, this, std::placeholders::_1));
     RCLCPP_INFO(this->get_logger(), "DecisionNode initialized");
 }
@@ -270,54 +268,6 @@ void DecisionNode::dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
         RCLCPP_INFO(this->get_logger(), "Received enemy dart warning");
         pushCustomInfo(DART_WARNING);
     }
-}
-
-void DecisionNode::rfInfoWaveCallback(const radar_msgs::msg::RfInfoWave::ConstPtr &msg)
-{
-    RCLCPP_INFO(this->get_logger(), "===== RF Info Wave Data Received =====");
-
-    // Positions (0x0A01)
-    RCLCPP_INFO(this->get_logger(),
-        "Positions: hero(%d,%d) eng(%d,%d) inf3(%d,%d) inf4(%d,%d) aerial(%d,%d) sentry(%d,%d)",
-        msg->positions[0], msg->positions[1],
-        msg->positions[2], msg->positions[3],
-        msg->positions[4], msg->positions[5],
-        msg->positions[6], msg->positions[7],
-        msg->positions[8], msg->positions[9],
-        msg->positions[10], msg->positions[11]);
-
-    // HP (0x0A02)
-    RCLCPP_INFO(this->get_logger(),
-        "HP: hero=%d eng=%d inf3=%d inf4=%d sentry=%d",
-        msg->hp[0], msg->hp[1], msg->hp[2], msg->hp[3], msg->hp[4]);
-
-    // Ammo (0x0A03)
-    RCLCPP_INFO(this->get_logger(),
-        "Ammo: hero=%d inf3=%d inf4=%d aerial=%d sentry=%d",
-        msg->ammo[0], msg->ammo[1], msg->ammo[2], msg->ammo[3], msg->ammo[4]);
-
-    // Field (0x0A04)
-    RCLCPP_INFO(this->get_logger(),
-        "Field: remain_coins=%d total_coins=%d status_flags=0x%08X",
-        msg->remaining_coins, msg->total_coins, msg->status_flags);
-
-    // Buffs (0x0A05) - summary only
-    RCLCPP_INFO(this->get_logger(),
-        "Buffs: hero(heal=%d cool=%d def=%d vuln=%d atk=%d) "
-        "eng(heal=%d cool=%d def=%d vuln=%d atk=%d) "
-        "inf3(heal=%d cool=%d def=%d vuln=%d atk=%d)",
-        msg->buffs[0], msg->buffs[1], msg->buffs[2], msg->buffs[3], msg->buffs[4],
-        msg->buffs[5], msg->buffs[6], msg->buffs[7], msg->buffs[8], msg->buffs[9],
-        msg->buffs[10], msg->buffs[11], msg->buffs[12], msg->buffs[13], msg->buffs[14]);
-
-    RCLCPP_INFO(this->get_logger(),
-        "Buffs(cont): inf4(heal=%d cool=%d def=%d vuln=%d atk=%d) "
-        "sentry(heal=%d cool=%d def=%d vuln=%d atk=%d) sentry_posture=%d",
-        msg->buffs[15], msg->buffs[16], msg->buffs[17], msg->buffs[18], msg->buffs[19],
-        msg->buffs[20], msg->buffs[21], msg->buffs[22], msg->buffs[23], msg->buffs[24],
-        msg->sentry_posture);
-
-    RCLCPP_INFO(this->get_logger(), "===== RF Info Wave Data End =====");
 }
 
 int main(int argc, char **argv)
