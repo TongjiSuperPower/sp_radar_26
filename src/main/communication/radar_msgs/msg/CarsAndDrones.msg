@@ -1,0 +1,3 @@
+std_msgs/Header header
+sensor_msgs/PointCloud2 cars_cloud
+sensor_msgs/PointCloud2 drones_cloud
