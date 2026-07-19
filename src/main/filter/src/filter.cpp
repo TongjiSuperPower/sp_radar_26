@@ -198,13 +198,19 @@ private:
             return (point.z > 1.5);
         };
 
+        auto is_point_in_tech_core = [] (const pcl::PointXYZ& point) {
+            return (point.y - point.x < -5.73 && point.y - point.x > -7.27 && 
+                    point.y + point.x < 22.96 && point.y + point.x > 20.04);
+        };
+
         for (const auto &point_in : cloud_in->points)
         {
             if (!use_static_scan_ && use_outside_filter_) {
                 // 过滤场地外的点
                 if (is_point_outside_field(point_in) || is_point_in_base(point_in) ||
                     is_point_in_outpost(point_in) || is_point_in_dart_door(point_in) || 
-                    is_point_on_helipad(point_in) || is_point_in_exchange_station(point_in)) {
+                    is_point_on_helipad(point_in) || is_point_in_exchange_station(point_in) || 
+                    is_point_in_tech_core(point_in)) {
                     filtered_count++;
                     continue;
                 }
