@@ -8,6 +8,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -31,6 +32,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Car.msg"
   "msg/Cars.msg"
 
+  "msg/CarsAndDrones.msg"
+
   # rf_wave
   "msg/RadarParseEmWave0A01RobotPosition.msg"
   "msg/RadarParseEmWave0A02RobotHp.msg"
@@ -40,7 +43,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RadarParseEmWave0A06InterferenceKey.msg"
   "msg/RadarParseEmWaveDemodConfig.msg"
 
-  DEPENDENCIES std_msgs
+  DEPENDENCIES std_msgs sensor_msgs
 )
 
 ament_package()
