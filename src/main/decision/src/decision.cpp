@@ -224,18 +224,9 @@ void DecisionNode::radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr 
 
 void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
 {
-    // // dart warning
-    // for (auto center : msg->cars) {
-    //     if ((center.x > 27 && center.y > 3.9 && center.y < 4.6) ||
-    //         (center.x < 1 && center.y < 11.1 && center.y > 10.4)) {
-    //             // RCLCPP_INFO(this->get_logger(), "Dart warning");
-    //             pushCustomInfo(DART_WARNING);
-    //         }
-    // }
-
+    map_robot_data_pc_ref_ = radar_msgs::msg::MapRobotData();
     auto result = tracker_manager_.callback(msg);
 
-    map_robot_data_pc_ref_ = radar_msgs::msg::MapRobotData();
     uint16_t* p = &map_robot_data_pc_ref_.opponent_hero_position_x;
     for (auto& car : result->cars) {
         int id;
@@ -251,6 +242,12 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
         *(p + id * 2) = 100 * car.x;
         *(p + id * 2 + 1) = 100 * car.y;
     }
+
+    map_robot_data_pc_ref_.opponent_aerial_position_x = msg->opponent_aerial_position_x;
+    map_robot_data_pc_ref_.opponent_aerial_position_y = msg->opponent_aerial_position_y;
+    map_robot_data_pc_ref_.ally_aerial_position_x = msg->ally_aerial_position_x;
+    map_robot_data_pc_ref_.ally_aerial_position_y = msg->ally_aerial_position_y;
+
     pubMapRobotData();
 }
 

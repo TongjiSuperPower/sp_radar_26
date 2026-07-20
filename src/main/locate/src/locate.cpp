@@ -16,7 +16,7 @@ PointcloudLocater::PointcloudLocater()
     std::vector<double> distort_coeffs = config["distort_coeffs"].as<std::vector<double>>();
     distort_coeffs_ = cv::Mat(distort_coeffs.size(), 1, CV_64F, distort_coeffs.data()).clone();
 
-    enemy_colour = config["enemy"].as<std::string>();
+    // enemy_colour = config["enemy"].as<std::string>();
 
     std::vector<double> TUM_C2L = config["TUM_camera2lidar"].as<std::vector<double>>(); // TUM: from camera to lidar
     transform_C2L_ = tum_to_transform_stamped(TUM_C2L);
@@ -26,27 +26,27 @@ PointcloudLocater::PointcloudLocater()
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-    // 订阅 "lidar" 话题，处理点云数据
-    subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/livox/clustered_lidar", 10, std::bind(&PointcloudLocater::point_cloud_callback, this, std::placeholders::_1));
+    // 订阅 cluster 输出的 CarsAndDrones
+    clustered_sub_ = this->create_subscription<radar_msgs::msg::CarsAndDrones>(
+        "/livox/clustered_lidar", 10,
+        std::bind(&PointcloudLocater::clustered_callback, this, std::placeholders::_1));
     bbox_subscription_ = this->create_subscription<radar_msgs::msg::CarBbox>(
         "/car_bbox", 10, std::bind(&PointcloudLocater::bbox_callback, this, std::placeholders::_1));
-    drone_subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/livox/clustered_lidar_drone", 10, std::bind(&PointcloudLocater::drone_point_cloud_callback, this, std::placeholders::_1));
-    car_publisher_ = this->create_publisher<radar_msgs::msg::Cars>("/map_robot_data_pc", 10);
-    drone_publisher_ = this->create_publisher<radar_msgs::msg::Cars>("/map_drone_data_pc", 10);
-    both_publisher_ = this->create_publisher<radar_msgs::msg::Cars>("/map_both_data_pc", 10);
-    for (int i = 0; i < 12; i++)
-    {
-        std::vector<cv::Point3f> car;
-        car_points_.push_back(car);
-    }
+    publisher_ = this->create_publisher<radar_msgs::msg::Cars>("/map_both_data_pc", 10);
 }
 
-void PointcloudLocater::point_cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+void PointcloudLocater::clustered_callback(const radar_msgs::msg::CarsAndDrones::SharedPtr msg)
+{
+    process_cars(msg->cars_cloud);
+    process_drones(msg->drones_cloud);
+    publish_combined();
+}
+
+void PointcloudLocater::process_cars(const sensor_msgs::msg::PointCloud2 &cloud)
 {
     try
     {
+        auto msg = std::make_shared<sensor_msgs::msg::PointCloud2>(cloud);
         lidar_time_ = (1.0 * msg->header.stamp.sec * 1000 + msg->header.stamp.nanosec / 1e6);
         pcl::PointCloud<pcl::PointXYZ> transformed_cloud; // points in camera
         transform_point_cloud(msg, transform_L2C_, transformed_cloud);
@@ -64,7 +64,6 @@ void PointcloudLocater::point_cloud_callback(const sensor_msgs::msg::PointCloud2
             }
             if(key == 'q' || key == 'Q') {
                 if_show_img = false;
-                // cv::destroyWindow("pointcloud");
                 cv::destroyAllWindows();
             }
         }
@@ -72,6 +71,81 @@ void PointcloudLocater::point_cloud_callback(const sensor_msgs::msg::PointCloud2
     catch (tf2::TransformException &ex)
     {
         RCLCPP_ERROR(this->get_logger(), "Could not transform: %s", ex.what());
+    }
+}
+
+void PointcloudLocater::process_drones(const sensor_msgs::msg::PointCloud2 &cloud)
+{
+    pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
+    pcl::fromROSMsg(cloud, pcl_cloud);
+
+    // 在 lidar_frame 下按 y 符号分组，每组取 |y| 最大的点
+    const pcl::PointXYZ *best_ally = nullptr;     // y > 0，己方
+    const pcl::PointXYZ *best_opponent = nullptr; // y < 0，敌方
+
+    for (const auto& point : pcl_cloud.points) {
+        if (point.y > 0) {
+            if (!best_ally || point.y > best_ally->y) {
+                best_ally = &point;
+            }
+        } else {
+            if (!best_opponent || point.y < best_opponent->y) {
+                best_opponent = &point;
+            }
+        }
+    }
+
+    std::vector<radar_msgs::msg::Car> new_drone_cars;
+    uint16_t ally_x = 0, ally_y = 0;
+    uint16_t opponent_x = 0, opponent_y = 0;
+
+    try {
+        auto transform_L2M = tf_buffer_->lookupTransform(
+            "map", "lidar_frame", tf2::TimePointZero);
+
+        if (best_ally) {
+            radar_msgs::msg::Car drone;
+            drone.class_id = 12;  // 己方无人机
+            geometry_msgs::msg::PointStamped pt_lidar, pt_map;
+            pt_lidar.header.frame_id = "lidar_frame";
+            pt_lidar.point.x = best_ally->x;
+            pt_lidar.point.y = best_ally->y;
+            pt_lidar.point.z = best_ally->z;
+            tf2::doTransform(pt_lidar, pt_map, transform_L2M);
+            drone.x = 100 * pt_map.point.x;
+            drone.y = 100 * pt_map.point.y;
+            ally_x = static_cast<uint16_t>(std::round(pt_map.point.x));
+            ally_y = static_cast<uint16_t>(std::round(pt_map.point.y));
+            new_drone_cars.push_back(drone);
+        }
+
+        if (best_opponent) {
+            radar_msgs::msg::Car drone;
+            drone.class_id = 13;  // 敌方无人机
+            geometry_msgs::msg::PointStamped pt_lidar, pt_map;
+            pt_lidar.header.frame_id = "lidar_frame";
+            pt_lidar.point.x = best_opponent->x;
+            pt_lidar.point.y = best_opponent->y;
+            pt_lidar.point.z = best_opponent->z;
+            tf2::doTransform(pt_lidar, pt_map, transform_L2M);
+            drone.x = pt_map.point.x;
+            drone.y = pt_map.point.y;
+            opponent_x = static_cast<uint16_t>(std::round(pt_map.point.x));
+            opponent_y = static_cast<uint16_t>(std::round(pt_map.point.y));
+            new_drone_cars.push_back(drone);
+        }
+    } catch (tf2::TransformException &ex) {
+        RCLCPP_ERROR(this->get_logger(), "Drone transform error: %s", ex.what());
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        latest_drone_cars_ = std::move(new_drone_cars);
+        ally_aerial_x_ = ally_x;
+        ally_aerial_y_ = ally_y;
+        opponent_aerial_x_ = opponent_x;
+        opponent_aerial_y_ = opponent_y;
     }
 }
 
@@ -110,58 +184,6 @@ void PointcloudLocater::bbox_callback(const radar_msgs::msg::CarBbox::SharedPtr 
     // cv::resize(pointcloud_img_, pointcloud_img_, cv::Size(pointcloud_img_.cols / 2, pointcloud_img_.rows / 2));
     // cv::imshow("BBox Image", pointcloud_img_);
     // cv::waitKey(1);
-}
-
-void PointcloudLocater::drone_point_cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-    // 将 ROS 点云转换为 PCL 格式
-    pcl::PointCloud<pcl::PointXYZ> cloud;
-    pcl::fromROSMsg(*msg, cloud);
-
-    // 准备需要发布的消息
-    radar_msgs::msg::Cars drone_cars_msg;
-    drone_cars_msg.header.frame_id = "map";
-    drone_cars_msg.header.stamp = msg->header.stamp;   // 使用点云原始时间戳
-   
-    std::vector<radar_msgs::msg::Car> new_drone_cars;
-   
-    try {
-        // 获取从雷达坐标系到地图坐标系的变换
-        auto transform_L2M = tf_buffer_->lookupTransform(
-            "map", "lidar_frame", tf2::TimePointZero);
-
-        for (const auto& point : cloud.points) {
-            geometry_msgs::msg::PointStamped pt_lidar, pt_map;
-            pt_lidar.header.frame_id = "lidar_frame";
-            pt_lidar.point.x = point.x;
-            pt_lidar.point.y = point.y;
-            pt_lidar.point.z = point.z;
-
-            tf2::doTransform(pt_lidar, pt_map, transform_L2M);
-
-            radar_msgs::msg::Car drone;
-            drone.x = pt_map.point.x;
-            drone.y = pt_map.point.y;
-            if (enemy_colour == "red") {
-                drone.class_id = 10;   // 红方无人机 ID
-            } else {
-                drone.class_id = 4;   // 无人机固定 ID
-            }
-            drone_cars_msg.cars.push_back(drone);
-            new_drone_cars.push_back(drone);
-        }
-    } catch (tf2::TransformException &ex) {
-        RCLCPP_ERROR(this->get_logger(), "Drone transform error: %s", ex.what());
-        return;
-    }
-    {
-        std::lock_guard<std::mutex> lock(mtx_);
-        latest_drone_cars_ = std::move(new_drone_cars);
-    }
-
-    // 发布无人机目标
-    drone_publisher_->publish(drone_cars_msg);
-    publish_combined();
 }
 
 void PointcloudLocater::transform_point_cloud(
@@ -240,7 +262,6 @@ std::vector<std::pair<pcl::PointXYZ, int>> PointcloudLocater::pointclouds_to_ima
                 for (const auto &bbox : bbox_msg_->bboxs) {                    
                     if (reprojected_points[i].x > bbox.x_min && reprojected_points[i].x < bbox.x_max && 
                         reprojected_points[i].y > bbox.y_min && reprojected_points[i].y < bbox.y_max) {                 
-                        // car_points_[cout].push_back(obj_points[i]);
                         id = bbox.class_id;
                     }
                 }
@@ -314,9 +335,6 @@ void PointcloudLocater::locate(std::vector<std::pair<pcl::PointXYZ, int>> car_ce
         std::lock_guard<std::mutex> lock(mtx_);
         latest_ground_cars_ = std::move(new_ground_cars);
     }
-
-    car_publisher_->publish(map_robot_center);
-    publish_combined();
 }
 
 geometry_msgs::msg::TransformStamped PointcloudLocater::tum_to_transform_stamped(std::vector<double> TUM)
@@ -383,12 +401,16 @@ void PointcloudLocater::publish_combined()
     {
         std::lock_guard<std::mutex> lock(mtx_);
         combined_msg.cars.insert(combined_msg.cars.end(),
-                                 latest_ground_cars_.begin(), latest_ground_cars_.end());                       
+                                 latest_ground_cars_.begin(), latest_ground_cars_.end());
         combined_msg.cars.insert(combined_msg.cars.end(),
                                  latest_drone_cars_.begin(), latest_drone_cars_.end());
+        combined_msg.ally_aerial_position_x = ally_aerial_x_;
+        combined_msg.ally_aerial_position_y = ally_aerial_y_;
+        combined_msg.opponent_aerial_position_x = opponent_aerial_x_;
+        combined_msg.opponent_aerial_position_y = opponent_aerial_y_;
     }
 
-    both_publisher_->publish(combined_msg);
+    publisher_->publish(combined_msg);
 }
 
 int main(int argc, char **argv)
