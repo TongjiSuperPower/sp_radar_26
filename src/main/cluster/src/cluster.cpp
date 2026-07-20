@@ -21,8 +21,8 @@ void Cluster::callback(const radar_msgs::msg::CarsAndDrones::SharedPtr msg)
 {
     auto result = std::make_unique<radar_msgs::msg::CarsAndDrones>();
 
-    cluster_cloud(msg->cars_cloud, points_list_, result->cars_cloud);
-    cluster_cloud(msg->drones_cloud, points_list_drone_, result->drones_cloud);
+    cluster_cloud(msg->cars_cloud, points_list_, result->cars_cloud, 0.25);
+    cluster_cloud(msg->drones_cloud, points_list_drone_, result->drones_cloud, 1);
 
     pub_->publish(std::move(result));
 }
@@ -30,7 +30,7 @@ void Cluster::callback(const radar_msgs::msg::CarsAndDrones::SharedPtr msg)
 
 void Cluster::cluster_cloud(const sensor_msgs::msg::PointCloud2 &in_cloud,
                             std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> &points_list,
-                            sensor_msgs::msg::PointCloud2 &out_cloud)
+                            sensor_msgs::msg::PointCloud2 &out_cloud, double tolerance)
 {
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>),
@@ -53,7 +53,7 @@ void Cluster::cluster_cloud(const sensor_msgs::msg::PointCloud2 &in_cloud,
     tree->setInputCloud(cloud_projected);
 
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance(0.25);
+    ec.setClusterTolerance(tolerance);
     ec.setMinClusterSize(5);
     ec.setMaxClusterSize(1000);
     ec.setSearchMethod(tree);

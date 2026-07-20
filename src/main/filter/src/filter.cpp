@@ -175,8 +175,8 @@ private:
         };
         // 由于场地模型内飞镖闸门是打开的，所以需要手动删除
         auto is_point_in_dart_door = [] (const pcl::PointXYZ& point)  { 
-            return (point.x > 25.0 && point.x < 27.0 && point.y > 2.9 && point.y < 5.5) ||
-                    (point.x < 3.0 && point.x > 1.0 && point.y < 12.1 && point.y > 9.5);
+            return (point.x > 25.0 && point.x < 27.5 && point.y > 2.9 && point.y < 5.5) ||
+                    (point.x < 3.0 && point.x > 0.5 && point.y < 12.1 && point.y > 9.5);
         };
         auto is_point_on_helipad = [] (const pcl::PointXYZ& point)  { 
             return (point.x > 25.0 && point.y <3.5) || (point.x < 3.0 && point.y > 11.5);
@@ -185,15 +185,15 @@ private:
             return (point.x < 1.5 && point.y < 1.8) || (point.x > 26.5 && point.y > 13.2);
         };
         auto is_point_in_drone_red = [] (const pcl::PointXYZ& point)  {
-            return (point.x < 16.4 && point.x > 0 && point.y > 8.85 && point.y < 13.5 && point.z > 1.4 && point.z < 3 );
+            return (point.x < 16.4 && point.x > 0.5 && point.y > 8.85 && point.y < 13.5 && point.z > 1.4 && point.z < 3 );
         };
 
         auto is_point_in_drone_blue = [] (const pcl::PointXYZ& point)  {
-            return (point.x < 28 && point.x > 28 - 16.4 && point.y > 0 && point.y < 15 - 8.85 && point.z > 1.4 && point.z < 3 );
+            return (point.x < 27.5 && point.x > 28 - 16.4 && point.y > 1.5 && point.y < 15 - 8.85 && point.z > 1.4 && point.z < 3 );
         };
 
         auto is_point_up = [] (const pcl::PointXYZ& point)  {
-            return (point.z > 1.5);
+            return (point.z > 3);
         };
 
         auto is_point_in_tech_core = [] (const pcl::PointXYZ& point) {

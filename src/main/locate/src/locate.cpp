@@ -104,35 +104,25 @@ void PointcloudLocater::process_drones(const sensor_msgs::msg::PointCloud2 &clou
             "map", "lidar_frame", tf2::TimePointZero);
 
         if (best_ally) {
-            radar_msgs::msg::Car drone;
-            drone.class_id = 12;  // 己方无人机
             geometry_msgs::msg::PointStamped pt_lidar, pt_map;
             pt_lidar.header.frame_id = "lidar_frame";
             pt_lidar.point.x = best_ally->x;
             pt_lidar.point.y = best_ally->y;
             pt_lidar.point.z = best_ally->z;
             tf2::doTransform(pt_lidar, pt_map, transform_L2M);
-            drone.x = 100 * pt_map.point.x;
-            drone.y = 100 * pt_map.point.y;
-            ally_x = static_cast<uint16_t>(std::round(pt_map.point.x));
-            ally_y = static_cast<uint16_t>(std::round(pt_map.point.y));
-            new_drone_cars.push_back(drone);
+            ally_x = static_cast<uint16_t>(std::round(100 * pt_map.point.x));
+            ally_y = static_cast<uint16_t>(std::round(100 * pt_map.point.y));
         }
 
         if (best_opponent) {
-            radar_msgs::msg::Car drone;
-            drone.class_id = 13;  // 敌方无人机
             geometry_msgs::msg::PointStamped pt_lidar, pt_map;
             pt_lidar.header.frame_id = "lidar_frame";
             pt_lidar.point.x = best_opponent->x;
             pt_lidar.point.y = best_opponent->y;
             pt_lidar.point.z = best_opponent->z;
             tf2::doTransform(pt_lidar, pt_map, transform_L2M);
-            drone.x = pt_map.point.x;
-            drone.y = pt_map.point.y;
-            opponent_x = static_cast<uint16_t>(std::round(pt_map.point.x));
-            opponent_y = static_cast<uint16_t>(std::round(pt_map.point.y));
-            new_drone_cars.push_back(drone);
+            opponent_x = static_cast<uint16_t>(std::round(100 * pt_map.point.x));
+            opponent_y = static_cast<uint16_t>(std::round(100 * pt_map.point.y));
         }
     } catch (tf2::TransformException &ex) {
         RCLCPP_ERROR(this->get_logger(), "Drone transform error: %s", ex.what());

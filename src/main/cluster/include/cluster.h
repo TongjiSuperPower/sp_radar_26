@@ -38,7 +38,7 @@ private:
 
     void cluster_cloud(const sensor_msgs::msg::PointCloud2 &in_cloud,
                        std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> &points_list,
-                       sensor_msgs::msg::PointCloud2 &out_cloud);
+                       sensor_msgs::msg::PointCloud2 &out_cloud, double tolerance);
 
     std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> points_list_;
     std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> points_list_drone_;
