@@ -406,4 +406,58 @@ namespace sp_referee
         RobotInteractionDataHeader robot_interaction_data_header_;
         uint8_t dart_gate_status_;
     } __packed RadarEnemyDartWarning; //0x0210 dart warning
+
+    typedef struct
+    {
+        RobotInteractionDataHeader robot_interaction_data_header_;
+        uint8_t hero_heal_;
+        uint16_t hero_cool_;
+        uint8_t hero_def_;
+        uint8_t hero_vuln_;
+        uint16_t hero_atk_;
+        uint8_t engineer_heal_;
+        uint16_t engineer_cool_;
+        uint8_t engineer_def_;
+        uint8_t engineer_vuln_;
+        uint16_t engineer_atk_;
+        uint8_t infantry3_heal_;
+        uint16_t infantry3_cool_;
+        uint8_t infantry3_def_;
+        uint8_t infantry3_vuln_;
+        uint16_t infantry3_atk_;
+        uint8_t infantry4_heal_;
+        uint16_t infantry4_cool_;
+        uint8_t infantry4_def_;
+        uint8_t infantry4_vuln_;
+        uint16_t infantry4_atk_;
+        uint8_t sentry_heal_;
+        uint16_t sentry_cool_;
+        uint8_t sentry_def_;
+        uint8_t sentry_vuln_;
+        uint16_t sentry_atk_;
+        uint8_t sentry_posture_;
+        uint8_t hero_status_;
+        uint8_t engineer_status_;
+        uint8_t infantry3_status_;
+        uint8_t infantry4_status_;
+        uint8_t sentry_status_;
+    }__packed RadarSentryBuffCmd; // 0x0211
+
+    typedef struct
+    {
+        RobotInteractionDataHeader robot_interaction_data_header_;
+        uint8_t source_;
+        int16_t hero_x_;
+        int16_t hero_y_;
+        int16_t engineer_x_;
+        int16_t engineer_y_;
+        int16_t infantry3_x_;
+        int16_t infantry3_y_;
+        int16_t infantry4_x_;
+        int16_t infantry4_y_;
+        int16_t aerial_x_;
+        int16_t aerial_y_;
+        int16_t sentry_x_;
+        int16_t sentry_y_;
+    }__packed RadarSentryPositionCmd; // 0x0212
 }

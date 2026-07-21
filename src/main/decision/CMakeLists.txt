@@ -12,6 +12,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(radar_msgs REQUIRED)
+find_package(radar_parse_em_wave REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
@@ -37,6 +38,7 @@ target_link_libraries(decision tools yaml-cpp)
 ament_target_dependencies(decision
   rclcpp
   radar_msgs
+  radar_parse_em_wave
 )
 
 install(TARGETS

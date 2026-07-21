@@ -34,14 +34,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
   "msg/CarsAndDrones.msg"
 
-  # rf_wave
-  "msg/RadarParseEmWave0A01RobotPosition.msg"
-  "msg/RadarParseEmWave0A02RobotHp.msg"
-  "msg/RadarParseEmWave0A03RobotAmmo.msg"
-  "msg/RadarParseEmWave0A04FieldStatus.msg"
-  "msg/RadarParseEmWave0A05RobotBuff.msg"
-  "msg/RadarParseEmWave0A06InterferenceKey.msg"
-  "msg/RadarParseEmWaveDemodConfig.msg"
+  "msg/RadarSentryBuffCmd.msg"
+  "msg/RadarSentryPositionCmd.msg"
 
   DEPENDENCIES std_msgs sensor_msgs
 )

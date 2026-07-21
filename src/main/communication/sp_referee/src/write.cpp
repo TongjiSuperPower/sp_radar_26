@@ -44,48 +44,116 @@ namespace sp_referee
                 }
                 case sp_referee::RADAR_ENEMY_HERO_POSITION_CMD:
                 {
+                    break;
                 }
                 case sp_referee::RADAR_ENEMY_DART_WARNING_CMD:
                 {
-                    // if (robot_info_.robot_id_ == 9)
-                    // {
-                    //     for (int i = 1; i <= 7; ++i)
-                    //     {
-                    //         if (i == 5 || i == 7) continue; // Skip sending to the sentry and infantry 5
-                    //         data_len = static_cast<int>(sizeof(sp_referee::RADAR_ENEMY_DART_WARNING_CMD));
-                    //         frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
-                    //         sp_referee::RadarEnemyDartWarning radar_enemy_dart_warning_cmd;
-                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ENEMY_DART_WARNING_CMD;
-                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
-                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.receiver_id_ = i;
-                    //         // radar_enemy_dart_warning_cmd.dart_gate_status_ = radar_enemy_dart_warning_ref_.data;
-                    //         radar_enemy_dart_warning_cmd.dart_gate_status_ = 1;
+                    if (robot_info_.robot_id_ == 9)
+                    {
+                        for (int i = 1; i <= 7; ++i)
+                        {
+                            if (i == 5 || i == 7) continue; // Skip sending to the sentry and infantry 5
+                            data_len = static_cast<int>(sizeof(sp_referee::RadarEnemyDartWarning));
+                            frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
+                            sp_referee::RadarEnemyDartWarning radar_enemy_dart_warning_cmd;
+                            radar_enemy_dart_warning_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ENEMY_DART_WARNING_CMD;
+                            radar_enemy_dart_warning_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
+                            radar_enemy_dart_warning_cmd.robot_interaction_data_header_.receiver_id_ = i;
+                            radar_enemy_dart_warning_cmd.dart_gate_status_ = radar_enemy_dart_warning_ref_.data;
 
-                    //         std::cout << "Sending RADAR_ENEMY_DART_WARNING_CMD to robot " << i
-                    //                   << " with dart_gate_status=" << static_cast<int>(radar_enemy_dart_warning_cmd.dart_gate_status_) << std::endl;
+                            std::cout << "Sending RADAR_ENEMY_DART_WARNING_CMD to robot " << i
+                                      << " with dart_gate_status=" << static_cast<int>(radar_enemy_dart_warning_cmd.dart_gate_status_) << std::endl;
 
-                    //         pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_enemy_dart_warning_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
-                    //     }
-                    // }
+                            pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_enemy_dart_warning_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
+                        }
+                    }
 
-                    // if (robot_info_.robot_id_ == 109)
-                    // {
-                    //     for (int i = 101; i <= 107; ++i)
-                    //     {
-                    //         if (i == 105 || i == 107) continue; // Skip sending to the sentry and infantry 5
-                    //         data_len = static_cast<int>(sizeof(sp_referee::RADAR_ENEMY_DART_WARNING_CMD));
-                    //         frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
-                    //         sp_referee::RadarEnemyDartWarning radar_enemy_dart_warning_cmd;
-                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ENEMY_DART_WARNING_CMD;
-                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
-                    //         radar_enemy_dart_warning_cmd.robot_interaction_data_header_.receiver_id_ = i;
-                    //         radar_enemy_dart_warning_cmd.dart_gate_status_ = radar_enemy_dart_warning_ref_.data;
+                    if (robot_info_.robot_id_ == 109)
+                    {
+                        for (int i = 101; i <= 107; ++i)
+                        {
+                            if (i == 105 || i == 107) continue; // Skip sending to the sentry and infantry 5
+                            data_len = static_cast<int>(sizeof(sp_referee::RadarEnemyDartWarning));
+                            frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
+                            sp_referee::RadarEnemyDartWarning radar_enemy_dart_warning_cmd;
+                            radar_enemy_dart_warning_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ENEMY_DART_WARNING_CMD;
+                            radar_enemy_dart_warning_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
+                            radar_enemy_dart_warning_cmd.robot_interaction_data_header_.receiver_id_ = i;
+                            radar_enemy_dart_warning_cmd.dart_gate_status_ = radar_enemy_dart_warning_ref_.data;
 
-                    //         pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_enemy_dart_warning_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
-                    //     }
-                    // }
+                            pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_enemy_dart_warning_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
+                        }
+                    }
 
-                    // break;
+                    break;
+                }
+                case sp_referee::RADAR_SENTRY_BUFF_CMD:
+                {
+                    data_len = static_cast<int>(sizeof(sp_referee::RadarSentryBuffCmd));
+                    frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
+                    sp_referee::RadarSentryBuffCmd radar_sentry_buff_cmd;
+                    radar_sentry_buff_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_SENTRY_BUFF_CMD;
+                    radar_sentry_buff_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
+                    radar_sentry_buff_cmd.robot_interaction_data_header_.receiver_id_ = (robot_info_.robot_id_ >= 100) ? sp_referee::BLUE_SENTRY : sp_referee::RED_SENTRY;
+                    radar_sentry_buff_cmd.hero_heal_ = radar_sentry_buff_cmd_ref_.hero_heal;
+                    radar_sentry_buff_cmd.hero_cool_ = radar_sentry_buff_cmd_ref_.hero_cool;
+                    radar_sentry_buff_cmd.hero_def_ = radar_sentry_buff_cmd_ref_.hero_def;
+                    radar_sentry_buff_cmd.hero_vuln_ = radar_sentry_buff_cmd_ref_.hero_vuln;
+                    radar_sentry_buff_cmd.hero_atk_ = radar_sentry_buff_cmd_ref_.hero_atk;
+                    radar_sentry_buff_cmd.engineer_heal_ = radar_sentry_buff_cmd_ref_.engineer_heal;
+                    radar_sentry_buff_cmd.engineer_cool_ = radar_sentry_buff_cmd_ref_.engineer_cool;
+                    radar_sentry_buff_cmd.engineer_def_ = radar_sentry_buff_cmd_ref_.engineer_def;
+                    radar_sentry_buff_cmd.engineer_vuln_ = radar_sentry_buff_cmd_ref_.engineer_vuln;
+                    radar_sentry_buff_cmd.engineer_atk_ = radar_sentry_buff_cmd_ref_.engineer_atk;
+                    radar_sentry_buff_cmd.infantry3_heal_ = radar_sentry_buff_cmd_ref_.infantry3_heal;
+                    radar_sentry_buff_cmd.infantry3_cool_ = radar_sentry_buff_cmd_ref_.infantry3_cool;
+                    radar_sentry_buff_cmd.infantry3_def_ = radar_sentry_buff_cmd_ref_.infantry3_def;
+                    radar_sentry_buff_cmd.infantry3_vuln_ = radar_sentry_buff_cmd_ref_.infantry3_vuln;
+                    radar_sentry_buff_cmd.infantry3_atk_ = radar_sentry_buff_cmd_ref_.infantry3_atk;
+                    radar_sentry_buff_cmd.infantry4_heal_ = radar_sentry_buff_cmd_ref_.infantry4_heal;
+                    radar_sentry_buff_cmd.infantry4_cool_ = radar_sentry_buff_cmd_ref_.infantry4_cool;
+                    radar_sentry_buff_cmd.infantry4_def_ = radar_sentry_buff_cmd_ref_.infantry4_def;
+                    radar_sentry_buff_cmd.infantry4_vuln_ = radar_sentry_buff_cmd_ref_.infantry4_vuln;
+                    radar_sentry_buff_cmd.infantry4_atk_ = radar_sentry_buff_cmd_ref_.infantry4_atk;
+                    radar_sentry_buff_cmd.sentry_heal_ = radar_sentry_buff_cmd_ref_.sentry_heal;
+                    radar_sentry_buff_cmd.sentry_cool_ = radar_sentry_buff_cmd_ref_.sentry_cool;
+                    radar_sentry_buff_cmd.sentry_def_ = radar_sentry_buff_cmd_ref_.sentry_def;
+                    radar_sentry_buff_cmd.sentry_vuln_ = radar_sentry_buff_cmd_ref_.sentry_vuln;
+                    radar_sentry_buff_cmd.sentry_atk_ = radar_sentry_buff_cmd_ref_.sentry_atk;
+                    radar_sentry_buff_cmd.sentry_posture_ = radar_sentry_buff_cmd_ref_.sentry_posture;
+                    radar_sentry_buff_cmd.hero_status_ = radar_sentry_buff_cmd_ref_.hero_status;
+                    radar_sentry_buff_cmd.engineer_status_ = radar_sentry_buff_cmd_ref_.engineer_status;
+                    radar_sentry_buff_cmd.infantry3_status_ = radar_sentry_buff_cmd_ref_.infantry3_status;
+                    radar_sentry_buff_cmd.infantry4_status_ = radar_sentry_buff_cmd_ref_.infantry4_status;
+                    radar_sentry_buff_cmd.sentry_status_ = radar_sentry_buff_cmd_ref_.sentry_status;
+
+                    pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_sentry_buff_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
+                    break;
+                }
+                case sp_referee::RADAR_SENTRY_POSITION_CMD:
+                {
+                    data_len = static_cast<int>(sizeof(sp_referee::RadarSentryPositionCmd));
+                    frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
+                    sp_referee::RadarSentryPositionCmd radar_sentry_position_cmd;
+                    radar_sentry_position_cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_SENTRY_POSITION_CMD;
+                    radar_sentry_position_cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
+                    radar_sentry_position_cmd.robot_interaction_data_header_.receiver_id_ = (robot_info_.robot_id_ >= 100) ? sp_referee::BLUE_SENTRY : sp_referee::RED_SENTRY;
+                    radar_sentry_position_cmd.source_ = radar_sentry_position_cmd_ref_.source;
+                    radar_sentry_position_cmd.hero_x_ = radar_sentry_position_cmd_ref_.hero_x;
+                    radar_sentry_position_cmd.hero_y_ = radar_sentry_position_cmd_ref_.hero_y;
+                    radar_sentry_position_cmd.engineer_x_ = radar_sentry_position_cmd_ref_.engineer_x;
+                    radar_sentry_position_cmd.engineer_y_ = radar_sentry_position_cmd_ref_.engineer_y;
+                    radar_sentry_position_cmd.infantry3_x_ = radar_sentry_position_cmd_ref_.infantry3_x;
+                    radar_sentry_position_cmd.infantry3_y_ = radar_sentry_position_cmd_ref_.infantry3_y;
+                    radar_sentry_position_cmd.infantry4_x_ = radar_sentry_position_cmd_ref_.infantry4_x;
+                    radar_sentry_position_cmd.infantry4_y_ = radar_sentry_position_cmd_ref_.infantry4_y;
+                    radar_sentry_position_cmd.aerial_x_ = radar_sentry_position_cmd_ref_.aerial_x;
+                    radar_sentry_position_cmd.aerial_y_ = radar_sentry_position_cmd_ref_.aerial_y;
+                    radar_sentry_position_cmd.sentry_x_ = radar_sentry_position_cmd_ref_.sentry_x;
+                    radar_sentry_position_cmd.sentry_y_ = radar_sentry_position_cmd_ref_.sentry_y;
+
+                    pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_sentry_position_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
+                    break;
                 }
                 default:
                     RCLCPP_WARN(rclcpp::get_logger("Referee"), "Unknown child_cmd for radar: 0x%04X", child_cmd);

@@ -52,6 +52,8 @@ namespace sp_referee
         SENTRY_ALL_ALLIANCE_POSITION_CMD = 0x0207,
         RADAR_ENEMY_HERO_POSITION_CMD = 0x0209,
         RADAR_ENEMY_DART_WARNING_CMD = 0x0210,
+        RADAR_SENTRY_BUFF_CMD = 0x0211,
+        RADAR_SENTRY_POSITION_CMD = 0x0212,
     } RobotInteractiveEDataCmdId;
 
     enum

@@ -49,8 +49,12 @@ namespace sp_referee
         // map_data_sub_ = nh_.subscribe<sp_referee::MapDataMsg>("/map_data", 1, &Referee::mapDataCallback, this);
         custom_info_sub_ = this->create_subscription<radar_msgs::msg::CustomInfo>(
             "/custom_info", 10, std::bind(&Referee::customInfoCallback, this, std::placeholders::_1));
-        // radar_enemy_dart_warning_sub_ = this->create_subscription<std_msgs::msg::Int8>(
-        //     "/dart_gate_status", 10, std::bind(&Referee::radarEnemyDartWarningCallback, this, std::placeholders::_1));
+        radar_sentry_buff_cmd_sub_ = this->create_subscription<radar_msgs::msg::RadarSentryBuffCmd>(
+            "/radar_sentry_buff_cmd", 10, std::bind(&Referee::radarSentryBuffCmdCallback, this, std::placeholders::_1));
+        radar_sentry_position_cmd_sub_ = this->create_subscription<radar_msgs::msg::RadarSentryPositionCmd>(
+            "/radar_sentry_position_cmd", 10, std::bind(&Referee::radarSentryPositionCmdCallback, this, std::placeholders::_1));
+        radar_enemy_dart_warning_sub_ = this->create_subscription<std_msgs::msg::Int8>(
+            "/dart_gate_status", 10, std::bind(&Referee::radarEnemyDartWarningCallback, this, std::placeholders::_1));
         
         
         RCLCPP_INFO(this->get_logger(), "Referee node has started");
@@ -103,10 +107,22 @@ namespace sp_referee
         write(0x0308);
     }
 
-    // void Referee::radarEnemyDartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
-    // {
-    //     radar_enemy_dart_warning_ref_ = *msg;
-    //     write(0x0301, 0x0210);
-    // }
+    void Referee::radarSentryBuffCmdCallback(const radar_msgs::msg::RadarSentryBuffCmd::ConstPtr &msg)
+    {
+        radar_sentry_buff_cmd_ref_ = *msg;
+        write(0x0301, 0x0211);
+    }
+
+    void Referee::radarSentryPositionCmdCallback(const radar_msgs::msg::RadarSentryPositionCmd::ConstPtr &msg)
+    {
+        radar_sentry_position_cmd_ref_ = *msg;
+        write(0x0301, 0x0212);
+    }
+
+    void Referee::radarEnemyDartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
+    {
+        radar_enemy_dart_warning_ref_ = *msg;
+        write(0x0301, 0x0210);
+    }
 
 } // namespace sp_referee
