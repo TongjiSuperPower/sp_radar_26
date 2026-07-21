@@ -1,5 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
+// #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <radar_msgs/msg/cars_and_drones.hpp>
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/voxel_grid.h>
@@ -32,7 +33,6 @@ public:
         use_static_scan_ = config["use_static_scan"].as<bool>();
         use_outside_filter_ = config["use_outside_filter"].as<bool>();
         std::string map_pcd_file;
-
         
         enemy_color = config["enemy_color"].as<std::string>();
 
@@ -50,8 +50,7 @@ public:
             std::bind(&PCDPointCloudFilterNode::pointCloudCallback, this, std::placeholders::_1)); //get the message into callback
 
         // 发布过滤后的点云
-        publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/livox/filtered_lidar", 10);
-        publisher_drone_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/livox/filtered_lidar_drone", 10);
+        publisher_ = create_publisher<radar_msgs::msg::CarsAndDrones>("/livox/filtered_lidar", 10);
 
     }
 
@@ -101,10 +100,10 @@ private:
     {
         // 将接收到的PointCloud2转换为PCL格式
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in(new pcl::PointCloud<pcl::PointXYZ>());
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>());
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered_drone(new pcl::PointCloud<pcl::PointXYZ>());
-        sensor_msgs::msg::PointCloud2::SharedPtr output_msg(new sensor_msgs::msg::PointCloud2());
-        sensor_msgs::msg::PointCloud2::SharedPtr output_msg_drone(new sensor_msgs::msg::PointCloud2());
+        pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_car_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+        pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_drone_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+        sensor_msgs::msg::PointCloud2::SharedPtr car_msg(new sensor_msgs::msg::PointCloud2());
+        sensor_msgs::msg::PointCloud2::SharedPtr drone_msg(new sensor_msgs::msg::PointCloud2());
 
         auto now = get_clock()->now();
 
@@ -126,36 +125,35 @@ private:
         }
 
         pcl::fromROSMsg(*msg, *cloud_in); // then to point cloud format
-        removeOverlap(cloud_in, cloud_filtered, cloud_filtered_drone); // then remove the overlap points from cloud_in and add the rest to cloud_filtered
-        pcl::toROSMsg(*cloud_filtered, *output_msg);// to ros
-        pcl::toROSMsg(*cloud_filtered_drone, *output_msg_drone);
+        removeOverlap(cloud_in, filtered_car_cloud, filtered_drone_cloud); // then remove the overlap points from cloud_in and add the rest to filtered_car_cloud
+        pcl::toROSMsg(*filtered_car_cloud, *car_msg);// to ros
+        pcl::toROSMsg(*filtered_drone_cloud, *drone_msg);
 
         if (!use_static_scan_){
-            tf2::doTransform(*output_msg, *output_msg, transform_M2L_);// again to livox
+            tf2::doTransform(*car_msg, *car_msg, transform_M2L_);// again to livox
         }
         if (!use_static_scan_){
-            tf2::doTransform(*output_msg_drone, *output_msg_drone, transform_M2L_);
+            tf2::doTransform(*drone_msg, *drone_msg, transform_M2L_);
         }
 
-        output_msg->header.frame_id = "livox_frame";
-        output_msg->header.stamp.sec = msg->header.stamp.sec;
+        car_msg->header.frame_id = "livox_frame";
+        car_msg->header.stamp.sec = msg->header.stamp.sec;
+        car_msg->header.stamp.nanosec = msg->header.stamp.nanosec;
 
-//        output_msg->header.stamp.sec = now.seconds();
-        output_msg->header.stamp.nanosec = msg->header.stamp.nanosec;
-
-        output_msg_drone->header.frame_id = "livox_frame";
-        output_msg_drone->header.stamp.sec = msg->header.stamp.sec;
-        output_msg_drone->header.stamp.nanosec = msg->header.stamp.nanosec;
+        drone_msg->header.frame_id = "livox_frame";
+        drone_msg->header.stamp.sec = msg->header.stamp.sec;
+        drone_msg->header.stamp.nanosec = msg->header.stamp.nanosec;
         
-        publisher_->publish(*output_msg);
-
-        publisher_drone_->publish(*output_msg_drone);
+        auto cars_and_drones_msg = std::make_unique<radar_msgs::msg::CarsAndDrones>();
+        cars_and_drones_msg->cars_cloud = std::move(*car_msg);
+        cars_and_drones_msg->drones_cloud = std::move(*drone_msg);
+        publisher_->publish(std::move(cars_and_drones_msg));
     }
 
     // 过滤场地背景点云 cloud_in:场地坐标系下的最新一帧点云
     void removeOverlap(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_in,
-                       pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_filtered,
-                       pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_filtered_drone)
+                       pcl::PointCloud<pcl::PointXYZ>::Ptr &filtered_car_cloud,
+                       pcl::PointCloud<pcl::PointXYZ>::Ptr &filtered_drone_cloud)
     {
         std::vector<int> point_idx_search; 
         std::vector<float> point_dist_squared; //the one we use
@@ -177,8 +175,8 @@ private:
         };
         // 由于场地模型内飞镖闸门是打开的，所以需要手动删除
         auto is_point_in_dart_door = [] (const pcl::PointXYZ& point)  { 
-            return (point.x > 25.0 && point.x < 27.0 && point.y > 2.9 && point.y < 5.5) ||
-                    (point.x < 3.0 && point.x > 1.0 && point.y < 12.1 && point.y > 9.5);
+            return (point.x > 25.0 && point.x < 27.5 && point.y > 2.9 && point.y < 5.5) ||
+                    (point.x < 3.0 && point.x > 0.5 && point.y < 12.1 && point.y > 9.5);
         };
         auto is_point_on_helipad = [] (const pcl::PointXYZ& point)  { 
             return (point.x > 25.0 && point.y <3.5) || (point.x < 3.0 && point.y > 11.5);
@@ -187,15 +185,15 @@ private:
             return (point.x < 1.5 && point.y < 1.8) || (point.x > 26.5 && point.y > 13.2);
         };
         auto is_point_in_drone_red = [] (const pcl::PointXYZ& point)  {
-            return (point.x < 16.4 && point.x > 0 && point.y > 8.85 && point.y < 13.5 && point.z > 1.4 && point.z < 3 );
+            return (point.x < 16.4 && point.x > 0.5 && point.y > 8.85 && point.y < 13.5 && point.z > 1.4 && point.z < 3 );
         };
 
         auto is_point_in_drone_blue = [] (const pcl::PointXYZ& point)  {
-            return (point.x < 28 && point.x > 28 - 16.4 && point.y > 0 && point.y < 15 - 8.85 && point.z > 1.4 && point.z < 3 );
+            return (point.x < 27.5 && point.x > 28 - 16.4 && point.y > 1.5 && point.y < 15 - 8.85 && point.z > 1.4 && point.z < 3 );
         };
 
         auto is_point_up = [] (const pcl::PointXYZ& point)  {
-            return (point.z > 1.5);
+            return (point.z > 3);
         };
 
         auto is_point_in_tech_core = [] (const pcl::PointXYZ& point) {
@@ -210,11 +208,18 @@ private:
                 if (is_point_outside_field(point_in) || is_point_in_base(point_in) ||
                     is_point_in_outpost(point_in) || is_point_in_dart_door(point_in) || 
                     is_point_on_helipad(point_in) || is_point_in_exchange_station(point_in) || 
-                    is_point_in_tech_core(point_in)) {
+                    is_point_in_tech_core(point_in) || is_point_up(point_in)) {
                     filtered_count++;
                     continue;
                 }
             }
+
+            // 分类无人机点云
+            if (is_point_in_drone_red(point_in) || is_point_in_drone_blue(point_in)) {
+                filtered_drone_cloud->points.push_back(point_in);
+                continue;
+            }
+
             // 过滤map_scan得到的背景点云
             kdtree_.nearestKSearch(point_in, 1, point_idx_search, point_dist_squared); //if forget how to work go to pcl Ktree explains it
             if (point_dist_squared[0] < threshold_distance * threshold_distance)
@@ -222,22 +227,11 @@ private:
                 filtered_count++;
                 continue;
             }
-            if (enemy_color == "red") {
-                if (is_point_in_drone_red(point_in)){
-                cloud_filtered_drone->points.push_back(point_in);
-                }
-            }
-            else if (enemy_color == "blue"){
-                if (is_point_in_drone_blue(point_in)){
-                cloud_filtered_drone->points.push_back(point_in);
-                }
-            }
-            if(!is_point_up(point_in)){
-                cloud_filtered->points.push_back(point_in);
-            }
+
+            filtered_car_cloud->points.push_back(point_in);
         }
         RCLCPP_INFO(this->get_logger(), "remove %d points", filtered_count);
-        RCLCPP_INFO(this->get_logger(), "point cloud size: %ld", cloud_filtered->points.size());
+        RCLCPP_INFO(this->get_logger(), "point cloud size: %ld", filtered_car_cloud->points.size());
         RCLCPP_INFO(this->get_logger(), "Overlap removal completed.");
     }
 
@@ -250,8 +244,7 @@ private:
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree_;
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_drone_;
+    rclcpp::Publisher<radar_msgs::msg::CarsAndDrones>::SharedPtr publisher_;
 
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;

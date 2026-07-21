@@ -9,61 +9,73 @@
 Cluster::Cluster(): Node("cluster_node")
 {
     RCLCPP_INFO(this->get_logger(), "cluster_node start");
-    
-    sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/livox/filtered_lidar", 10, std::bind(&Cluster::callback, this, std::placeholders::_1));
-    pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/livox/clustered_lidar", 10);
 
-    sub_drone_ = this->create_subscription<sensor_msgs::msg::PointCloud2>("/livox/filtered_lidar_drone", 10, std::bind(&Cluster::callbackdrone, this, std::placeholders::_1));
-    pub_drone_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/livox/clustered_lidar_drone", 10);
+    sub_ = this->create_subscription<radar_msgs::msg::CarsAndDrones>(
+        "/livox/filtered_lidar", 10,
+        std::bind(&Cluster::callback, this, std::placeholders::_1));
+    pub_ = this->create_publisher<radar_msgs::msg::CarsAndDrones>("/livox/clustered_lidar", 10);
 }
 
 
-void Cluster::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+void Cluster::callback(const radar_msgs::msg::CarsAndDrones::SharedPtr msg)
+{
+    auto result = std::make_unique<radar_msgs::msg::CarsAndDrones>();
+
+    cluster_cloud(msg->cars_cloud, points_list_, result->cars_cloud, 0.25);
+    cluster_cloud(msg->drones_cloud, points_list_drone_, result->drones_cloud, 1);
+
+    pub_->publish(std::move(result));
+}
+
+
+void Cluster::cluster_cloud(const sensor_msgs::msg::PointCloud2 &in_cloud,
+                            std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> &points_list,
+                            sensor_msgs::msg::PointCloud2 &out_cloud, double tolerance)
 {
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>), 
-                                        cloud_across_frame(new pcl::PointCloud<pcl::PointXYZ>), 
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>),
+                                        cloud_across_frame(new pcl::PointCloud<pcl::PointXYZ>),
                                         cloud_projected(new pcl::PointCloud<pcl::PointXYZ>);
-    
-    pcl::fromROSMsg(*msg, *cloud);
-    RCLCPP_INFO(this->get_logger(), "Received a point cloud with %d points", cloud->size());
-    points_list_.push_back(cloud);
-    if (points_list_.size() > accumulate_frame)
-        points_list_.pop_front(); 
-    for (auto& points: points_list_) {
+
+    pcl::fromROSMsg(in_cloud, *cloud);
+    if (cloud->empty()) { return; }
+
+    points_list.push_back(cloud);
+    if (points_list.size() > accumulate_frame)
+        points_list.pop_front();
+    for (auto& points: points_list) {
         *cloud_across_frame += *points;
     }
-    
+
     cloud_projected = project(cloud_across_frame);
-    if (cloud->empty()) {return;}
+
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud(cloud_projected);
-    auto time = std::chrono::system_clock::now();
 
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance(0.25);
+    ec.setClusterTolerance(tolerance);
     ec.setMinClusterSize(5);
     ec.setMaxClusterSize(1000);
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud_projected);
     std::vector<pcl::PointIndices> cluster_indices;
     ec.extract(cluster_indices);
-    // std::cout<<(std::chrono::system_clock::now()-time).count()<<"ms"<<std::endl;
-    
-    pcl::PointCloud<pcl::PointXYZ> *out_cloud(new pcl::PointCloud<pcl::PointXYZ>); 
-    for(auto it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr out_pcl(new pcl::PointCloud<pcl::PointXYZ>);
+
+    for (auto it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
     {
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
-        for(auto pit = it->indices.begin(); pit != it->indices.end(); ++pit)
+        for (auto pit = it->indices.begin(); pit != it->indices.end(); ++pit)
         {
             cloud_cluster->points.push_back(cloud_across_frame->points[*pit]);
-        }        
+        }
         cloud_cluster->width = cloud_cluster->points.size();
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
 
         pcl::PointXYZ move_point;
-        for(auto point:cloud_cluster->points)
+        for (auto point: cloud_cluster->points)
         {
             move_point.x += point.x;
             move_point.y += point.y;
@@ -73,91 +85,17 @@ void Cluster::callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
         move_point.y /= cloud_cluster->points.size();
         move_point.z /= cloud_cluster->points.size();
         if (move_point.x < 30 && abs(move_point.y) < 20) {
-            out_cloud->points.push_back(move_point);      
-        }  
-    }
-    sensor_msgs::msg::PointCloud2 output;
-    pcl::toROSMsg(*out_cloud, output);
-    output.header.frame_id = "livox_frame";
-    output.header.stamp = msg->header.stamp;
-    pub_->publish(output);
-    // print_cloud(output);
-    std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-    RCLCPP_INFO(this->get_logger(), "Cluster callback time: %f", std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()/1000.0);
-}
-
-void Cluster::callbackdrone(const sensor_msgs::msg::PointCloud2::SharedPtr msg_drone)
-{
-    std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_drone(new pcl::PointCloud<pcl::PointXYZ>), 
-                                        cloud_across_frame_drone(new pcl::PointCloud<pcl::PointXYZ>), 
-                                        cloud_projected_drone(new pcl::PointCloud<pcl::PointXYZ>);
-    
-    pcl::fromROSMsg(*msg_drone, *cloud_drone);
-    RCLCPP_INFO(this->get_logger(), "Received a point cloud with %d points", cloud_drone->size());
-    points_list_drone_.push_back(cloud_drone);
-    if (points_list_drone_.size() > accumulate_frame)
-        points_list_drone_.pop_front(); 
-    for (auto& points: points_list_drone_) {
-        *cloud_across_frame_drone += *points;
-    }
-    
-    cloud_projected_drone = project(cloud_across_frame_drone);
-    if (cloud_drone->empty()) {return;}
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
-    tree->setInputCloud(cloud_projected_drone);
-    auto time = std::chrono::system_clock::now();
-
-    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance(0.25);
-    ec.setMinClusterSize(5);
-    ec.setMaxClusterSize(1000);
-    ec.setSearchMethod(tree);
-    ec.setInputCloud(cloud_projected_drone);
-    std::vector<pcl::PointIndices> cluster_indices;
-    ec.extract(cluster_indices);
-    // std::cout<<(std::chrono::system_clock::now()-time).count()<<"ms"<<std::endl;
-    
-    pcl::PointCloud<pcl::PointXYZ> *out_cloud_drone(new pcl::PointCloud<pcl::PointXYZ>); 
-    pcl::PointCloud<pcl::PointXYZ>::Ptr largest_cluster(new pcl::PointCloud<pcl::PointXYZ>);
-    largest_cluster->width = 0;
-    for(auto it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
-    {
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
-        for(auto pit = it->indices.begin(); pit != it->indices.end(); ++pit)
-        {
-            cloud_cluster->points.push_back(cloud_across_frame_drone->points[*pit]);
-        }        
-        cloud_cluster->width = cloud_cluster->points.size();
-        cloud_cluster->height = 1;
-        cloud_cluster->is_dense = true;
-        if (cloud_cluster->width > largest_cluster->width) {
-            largest_cluster = cloud_cluster;
+            out_pcl->points.push_back(move_point);
         }
     }
 
-    pcl::PointXYZ largest_move_point;
-    for(auto point:largest_cluster->points)
-    {
-        largest_move_point.x += point.x;
-        largest_move_point.y += point.y;
-        largest_move_point.z += point.z;
-    }
-    largest_move_point.x /= largest_cluster->points.size();
-    largest_move_point.y /= largest_cluster->points.size();
-    largest_move_point.z /= largest_cluster->points.size();
-    if (largest_move_point.x < 30 && abs(largest_move_point.y) < 20) {
-        out_cloud_drone->points.push_back(largest_move_point);      
-    }
+    pcl::toROSMsg(*out_pcl, out_cloud);
+    out_cloud.header = in_cloud.header;
 
-    sensor_msgs::msg::PointCloud2 output_drone;
-    pcl::toROSMsg(*out_cloud_drone, output_drone);
-    output_drone.header.frame_id = "livox_frame";
-    output_drone.header.stamp = msg_drone->header.stamp;
-    pub_drone_->publish(output_drone);
-    // print_cloud(output);
     std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-    RCLCPP_INFO(this->get_logger(), "Cluster callback time: %f", std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()/1000.0);
+    RCLCPP_INFO(this->get_logger(), "Clustered %zu points in %f ms",
+                out_pcl->points.size(),
+                std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0);
 }
 
 

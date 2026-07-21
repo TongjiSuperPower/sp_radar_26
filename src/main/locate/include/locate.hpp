@@ -16,6 +16,7 @@
 #include <radar_msgs/msg/car_bbox.hpp>
 #include <radar_msgs/msg/car.hpp>
 #include <radar_msgs/msg/cars.hpp>
+#include <radar_msgs/msg/cars_and_drones.hpp>
 #include <pcl/conversions.h>
 #include <pcl/point_types.h>
 #include <pcl/common/transforms.h>
@@ -39,9 +40,11 @@ public:
 
 private:
     // 点云回调函数
-    void point_cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void clustered_callback(const radar_msgs::msg::CarsAndDrones::SharedPtr msg);
     void bbox_callback(const radar_msgs::msg::CarBbox::SharedPtr msg);
-    void drone_point_cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    // 分离处理函数
+    void process_cars(const sensor_msgs::msg::PointCloud2 &cloud);
+    void process_drones(const sensor_msgs::msg::PointCloud2 &cloud);
     // 点云转换函数
     void transform_point_cloud(
         const sensor_msgs::msg::PointCloud2::SharedPtr &msg,
@@ -56,17 +59,13 @@ private:
         const geometry_msgs::msg::TransformStamped& transform);
 
     cv::Mat pointcloud_img_;
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
+    rclcpp::Subscription<radar_msgs::msg::CarsAndDrones>::SharedPtr clustered_sub_;
     rclcpp::Subscription<radar_msgs::msg::CarBbox>::SharedPtr bbox_subscription_;
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr drone_subscription_;
-    rclcpp::Publisher<radar_msgs::msg::Cars>::SharedPtr car_publisher_;
-    rclcpp::Publisher<radar_msgs::msg::Cars>::SharedPtr drone_publisher_;
-    rclcpp::Publisher<radar_msgs::msg::Cars>::SharedPtr both_publisher_;
+    rclcpp::Publisher<radar_msgs::msg::Cars>::SharedPtr publisher_;
     cv::Mat camera_matrix_, distort_coeffs_;
     std::queue<std::vector<double>> features_queue_;
     double max_distance_ = 0;
     radar_msgs::msg::CarBbox::SharedPtr bbox_msg_;
-    std::vector<std::vector<cv::Point3f>> car_points_;
     double camera_time_;
     double lidar_time_;
     std::mutex mtx_;
@@ -82,8 +81,10 @@ private:
 
     std::vector<radar_msgs::msg::Car> latest_ground_cars_;
     std::vector<radar_msgs::msg::Car> latest_drone_cars_;
-
-    std::string enemy_colour;
+    uint16_t ally_aerial_x_ = 0;
+    uint16_t ally_aerial_y_ = 0;
+    uint16_t opponent_aerial_x_ = 0;
+    uint16_t opponent_aerial_y_ = 0;
 
     void publish_combined();
 

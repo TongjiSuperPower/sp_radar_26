@@ -10,6 +10,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(radar_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(PCL REQUIRED)
 find_package(yaml-cpp REQUIRED)
@@ -77,9 +78,10 @@ target_link_libraries(filter
 ament_target_dependencies(filter
   rclcpp
   sensor_msgs
+  std_msgs
+  radar_msgs
   pcl_conversions
   PCL
-  std_msgs
   tf2_ros
   tf2_geometry_msgs
   tf2_sensor_msgs

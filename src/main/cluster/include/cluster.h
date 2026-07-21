@@ -1,6 +1,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
+#include "radar_msgs/msg/cars_and_drones.hpp"
 #include "pcl_conversions/pcl_conversions.h"
 #include "pcl/point_types.h"
 #include "pcl/point_cloud.h"
@@ -31,20 +32,18 @@ public:
     ~Cluster(){}
     
 private:
-    void callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-    void callbackdrone(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void callback(const radar_msgs::msg::CarsAndDrones::SharedPtr msg);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr project(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud_xyz);
 
+    void cluster_cloud(const sensor_msgs::msg::PointCloud2 &in_cloud,
+                       std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> &points_list,
+                       sensor_msgs::msg::PointCloud2 &out_cloud, double tolerance);
+
     std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> points_list_;
     std::list<pcl::PointCloud<pcl::PointXYZ>::Ptr> points_list_drone_;
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_;
-    std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> accumulated_clouds_;
-
-    
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_drone_;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_drone_;
+    rclcpp::Subscription<radar_msgs::msg::CarsAndDrones>::SharedPtr sub_;
+    rclcpp::Publisher<radar_msgs::msg::CarsAndDrones>::SharedPtr pub_;
     geometry_msgs::msg::TransformStamped transform_M2L, transform_L2M_;
     
 
