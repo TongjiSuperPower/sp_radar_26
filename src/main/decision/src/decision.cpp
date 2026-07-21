@@ -7,6 +7,7 @@ DecisionNode::DecisionNode() : Node("decision_node")
 
     robot_id_ = 0;
     last_em_wave_position_time_ = this->now();
+    has_em_wave_opponent_position_ = false;
     radar_info_chance_ = 0;
     radar_info_istriggered_ = false;
     radar_cmd_cnt_ = 0;
@@ -15,8 +16,11 @@ DecisionNode::DecisionNode() : Node("decision_node")
     map_robot_data_pub_ = this->create_publisher<radar_msgs::msg::MapRobotData>("/map_robot_data", 1);
     custom_info_pub_ = this->create_publisher<radar_msgs::msg::CustomInfo>("/custom_info", 1);
     radar_demod_config_pub_ = this->create_publisher<radar_parse_em_wave::msg::RadarParseEmWaveDemodConfig>("/rmuc/demod_config", 1);
-    radar_sentry_buff_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarSentryBuffCmd>("/radar_sentry_buff_cmd", 1);
     radar_sentry_position_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarSentryPositionCmd>("/radar_sentry_position_cmd", 1);
+    radar_ally_hp_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyHpCmd>("/radar_ally_hp_cmd", 1);
+    radar_ally_ammo_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyAmmoCmd>("/radar_ally_ammo_cmd", 1);
+    radar_ally_field_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyFieldCmd>("/radar_ally_field_cmd", 1);
+    radar_ally_buff_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyBuffCmd>("/radar_ally_buff_cmd", 1);
 
     map_robot_data_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(200), std::bind(&DecisionNode::pubMapRobotData, this));   // 5Hz
@@ -45,6 +49,12 @@ DecisionNode::DecisionNode() : Node("decision_node")
         "/rmuc/rx/packet_0x0a05", 10, std::bind(&DecisionNode::robotBuffCallback, this, std::placeholders::_1));
     robot_position_sub_ = this->create_subscription<radar_parse_em_wave::msg::RadarParseEmWave0A01RobotPosition>(
         "/rmuc/rx/packet_0x0a01", 10, std::bind(&DecisionNode::robotPositionCallback, this, std::placeholders::_1));
+    robot_hp_sub_ = this->create_subscription<radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp>(
+        "/rmuc/rx/packet_0x0a02", 10, std::bind(&DecisionNode::robotHpCallback, this, std::placeholders::_1));
+    robot_ammo_sub_ = this->create_subscription<radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo>(
+        "/rmuc/rx/packet_0x0a03", 10, std::bind(&DecisionNode::robotAmmoCallback, this, std::placeholders::_1));
+    field_status_sub_ = this->create_subscription<radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus>(
+        "/rmuc/rx/packet_0x0a04", 10, std::bind(&DecisionNode::fieldStatusCallback, this, std::placeholders::_1));
 
     // map_robot_data_mono_sub_ = this->create_subscription<radar_msgs::msg::MapRobotData>((
     //     "/map_robot_data_mono", 10, std::bind(&DecisionNode::mapRobotDataMonoCallback, this, std::placeholders::_1));
@@ -62,6 +72,7 @@ void DecisionNode::pubMapRobotData()
     map_robot_data.header.stamp = this->now();
 
     map_robot_data_pub_->publish(map_robot_data);
+    has_em_wave_opponent_position_ = false;
 } // TODO 相机点云定位融合单目定位
 
 void DecisionNode::pubRadarCmd()
@@ -231,6 +242,15 @@ void DecisionNode::radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr 
 
 void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
 {
+    // 有信息波时先保存对方位置，等正常流程跑完再恢复
+    bool has_em = has_em_wave_opponent_position_ &&
+                  map_robot_data_pc_ref_.opponent_hero_position_x > 0;
+    uint16_t em_opponent[12];
+    if (has_em) {
+        memcpy(em_opponent, &map_robot_data_pc_ref_.opponent_hero_position_x, sizeof(em_opponent));
+    }
+
+    // 正常流程：重置并填充所有位置（对方+己方）
     map_robot_data_pc_ref_ = radar_msgs::msg::MapRobotData();
     auto result = tracker_manager_.callback(msg);
 
@@ -255,7 +275,10 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
     map_robot_data_pc_ref_.ally_aerial_position_x = msg->ally_aerial_position_x;
     map_robot_data_pc_ref_.ally_aerial_position_y = msg->ally_aerial_position_y;
 
-    pubMapRobotData();
+    // 有信息波时，用信息波对手位置覆盖跟踪结果
+    if (has_em) {
+        memcpy(&map_robot_data_pc_ref_.opponent_hero_position_x, em_opponent, sizeof(em_opponent));
+    }
 
     // 仅在没有信息波位置时(超过500ms未收到)发送雷达定位结果(source=0)
     if ((this->now() - last_em_wave_position_time_).seconds() > 0.5) {
@@ -295,63 +318,108 @@ void DecisionNode::dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
 
 void DecisionNode::robotBuffCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A05RobotBuff::ConstPtr &msg)
 {
-    // 将0x0A05 buff数据转发给己方哨兵
-    radar_msgs::msg::RadarSentryBuffCmd sentry_buff_cmd;
-    sentry_buff_cmd.hero_heal = msg->hero_heal;
-    sentry_buff_cmd.hero_cool = msg->hero_cool;
-    sentry_buff_cmd.hero_def = msg->hero_def;
-    sentry_buff_cmd.hero_vuln = msg->hero_vuln;
-    sentry_buff_cmd.hero_atk = msg->hero_atk;
-    sentry_buff_cmd.engineer_heal = msg->engineer_heal;
-    sentry_buff_cmd.engineer_cool = msg->engineer_cool;
-    sentry_buff_cmd.engineer_def = msg->engineer_def;
-    sentry_buff_cmd.engineer_vuln = msg->engineer_vuln;
-    sentry_buff_cmd.engineer_atk = msg->engineer_atk;
-    sentry_buff_cmd.infantry3_heal = msg->infantry3_heal;
-    sentry_buff_cmd.infantry3_cool = msg->infantry3_cool;
-    sentry_buff_cmd.infantry3_def = msg->infantry3_def;
-    sentry_buff_cmd.infantry3_vuln = msg->infantry3_vuln;
-    sentry_buff_cmd.infantry3_atk = msg->infantry3_atk;
-    sentry_buff_cmd.infantry4_heal = msg->infantry4_heal;
-    sentry_buff_cmd.infantry4_cool = msg->infantry4_cool;
-    sentry_buff_cmd.infantry4_def = msg->infantry4_def;
-    sentry_buff_cmd.infantry4_vuln = msg->infantry4_vuln;
-    sentry_buff_cmd.infantry4_atk = msg->infantry4_atk;
-    sentry_buff_cmd.sentry_heal = msg->sentry_heal;
-    sentry_buff_cmd.sentry_cool = msg->sentry_cool;
-    sentry_buff_cmd.sentry_def = msg->sentry_def;
-    sentry_buff_cmd.sentry_vuln = msg->sentry_vuln;
-    sentry_buff_cmd.sentry_atk = msg->sentry_atk;
-    sentry_buff_cmd.sentry_posture = msg->sentry_posture;
-    sentry_buff_cmd.hero_status = msg->hero_status;
-    sentry_buff_cmd.engineer_status = msg->engineer_status;
-    sentry_buff_cmd.infantry3_status = msg->infantry3_status;
-    sentry_buff_cmd.infantry4_status = msg->infantry4_status;
-    sentry_buff_cmd.sentry_status = msg->sentry_status;
-
-    radar_sentry_buff_cmd_pub_->publish(sentry_buff_cmd);
+    // 将0x0A05 buff数据广播给己方全部机器人
+    radar_msgs::msg::RadarAllyBuffCmd ally_buff_cmd;
+    ally_buff_cmd.hero_heal = msg->hero_heal;
+    ally_buff_cmd.hero_cool = msg->hero_cool;
+    ally_buff_cmd.hero_def = msg->hero_def;
+    ally_buff_cmd.hero_vuln = msg->hero_vuln;
+    ally_buff_cmd.hero_atk = msg->hero_atk;
+    ally_buff_cmd.engineer_heal = msg->engineer_heal;
+    ally_buff_cmd.engineer_cool = msg->engineer_cool;
+    ally_buff_cmd.engineer_def = msg->engineer_def;
+    ally_buff_cmd.engineer_vuln = msg->engineer_vuln;
+    ally_buff_cmd.engineer_atk = msg->engineer_atk;
+    ally_buff_cmd.infantry3_heal = msg->infantry3_heal;
+    ally_buff_cmd.infantry3_cool = msg->infantry3_cool;
+    ally_buff_cmd.infantry3_def = msg->infantry3_def;
+    ally_buff_cmd.infantry3_vuln = msg->infantry3_vuln;
+    ally_buff_cmd.infantry3_atk = msg->infantry3_atk;
+    ally_buff_cmd.infantry4_heal = msg->infantry4_heal;
+    ally_buff_cmd.infantry4_cool = msg->infantry4_cool;
+    ally_buff_cmd.infantry4_def = msg->infantry4_def;
+    ally_buff_cmd.infantry4_vuln = msg->infantry4_vuln;
+    ally_buff_cmd.infantry4_atk = msg->infantry4_atk;
+    ally_buff_cmd.sentry_heal = msg->sentry_heal;
+    ally_buff_cmd.sentry_cool = msg->sentry_cool;
+    ally_buff_cmd.sentry_def = msg->sentry_def;
+    ally_buff_cmd.sentry_vuln = msg->sentry_vuln;
+    ally_buff_cmd.sentry_atk = msg->sentry_atk;
+    ally_buff_cmd.sentry_posture = msg->sentry_posture;
+    ally_buff_cmd.hero_status = msg->hero_status;
+    ally_buff_cmd.engineer_status = msg->engineer_status;
+    ally_buff_cmd.infantry3_status = msg->infantry3_status;
+    ally_buff_cmd.infantry4_status = msg->infantry4_status;
+    ally_buff_cmd.sentry_status = msg->sentry_status;
+    radar_ally_buff_cmd_pub_->publish(ally_buff_cmd);
 }
 
 void DecisionNode::robotPositionCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A01RobotPosition::ConstPtr &msg)
 {
     last_em_wave_position_time_ = this->now();
+    has_em_wave_opponent_position_ = true;
 
-    // 将0x0A01信息波位置数据(source=1)转发给己方哨兵
+    // 用信息波位置(cm)替换对手机器人位置到 map_robot_data
+    map_robot_data_pc_ref_.opponent_hero_position_x = static_cast<uint16_t>(msg->hero_x);
+    map_robot_data_pc_ref_.opponent_hero_position_y = static_cast<uint16_t>(msg->hero_y);
+    map_robot_data_pc_ref_.opponent_engineer_position_x = static_cast<uint16_t>(msg->engineer_x);
+    map_robot_data_pc_ref_.opponent_engineer_position_y = static_cast<uint16_t>(msg->engineer_y);
+    map_robot_data_pc_ref_.opponent_infantry_3_position_x = static_cast<uint16_t>(msg->infantry3_x);
+    map_robot_data_pc_ref_.opponent_infantry_3_position_y = static_cast<uint16_t>(msg->infantry3_y);
+    map_robot_data_pc_ref_.opponent_infantry_4_position_x = static_cast<uint16_t>(msg->infantry4_x);
+    map_robot_data_pc_ref_.opponent_infantry_4_position_y = static_cast<uint16_t>(msg->infantry4_y);
+    map_robot_data_pc_ref_.opponent_aerial_position_x = static_cast<uint16_t>(msg->aerial_x);
+    map_robot_data_pc_ref_.opponent_aerial_position_y = static_cast<uint16_t>(msg->aerial_y);
+    map_robot_data_pc_ref_.opponent_sentry_position_x = static_cast<uint16_t>(msg->sentry_x);
+    map_robot_data_pc_ref_.opponent_sentry_position_y = static_cast<uint16_t>(msg->sentry_y);
+
+    // 将0x0A01信息波位置数据(source=1)转发给己方哨兵(单位: m)
     radar_msgs::msg::RadarSentryPositionCmd sentry_pos_cmd;
     sentry_pos_cmd.source = 1;
-    sentry_pos_cmd.hero_x = msg->hero_x;
-    sentry_pos_cmd.hero_y = msg->hero_y;
-    sentry_pos_cmd.engineer_x = msg->engineer_x;
-    sentry_pos_cmd.engineer_y = msg->engineer_y;
-    sentry_pos_cmd.infantry3_x = msg->infantry3_x;
-    sentry_pos_cmd.infantry3_y = msg->infantry3_y;
-    sentry_pos_cmd.infantry4_x = msg->infantry4_x;
-    sentry_pos_cmd.infantry4_y = msg->infantry4_y;
-    sentry_pos_cmd.aerial_x = msg->aerial_x;
-    sentry_pos_cmd.aerial_y = msg->aerial_y;
-    sentry_pos_cmd.sentry_x = msg->sentry_x;
-    sentry_pos_cmd.sentry_y = msg->sentry_y;
+    sentry_pos_cmd.hero_x = msg->hero_x / 100;
+    sentry_pos_cmd.hero_y = msg->hero_y / 100;
+    sentry_pos_cmd.engineer_x = msg->engineer_x / 100;
+    sentry_pos_cmd.engineer_y = msg->engineer_y / 100;
+    sentry_pos_cmd.infantry3_x = msg->infantry3_x / 100;
+    sentry_pos_cmd.infantry3_y = msg->infantry3_y / 100;
+    sentry_pos_cmd.infantry4_x = msg->infantry4_x / 100;
+    sentry_pos_cmd.infantry4_y = msg->infantry4_y / 100;
+    sentry_pos_cmd.aerial_x = msg->aerial_x / 100;
+    sentry_pos_cmd.aerial_y = msg->aerial_y / 100;
+    sentry_pos_cmd.sentry_x = msg->sentry_x / 100;
+    sentry_pos_cmd.sentry_y = msg->sentry_y / 100;
     radar_sentry_position_cmd_pub_->publish(sentry_pos_cmd);
+}
+
+void DecisionNode::robotHpCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp::ConstPtr &msg)
+{
+    radar_msgs::msg::RadarAllyHpCmd ally_hp_cmd;
+    ally_hp_cmd.hero_hp = msg->hero_hp;
+    ally_hp_cmd.engineer_hp = msg->engineer_hp;
+    ally_hp_cmd.infantry3_hp = msg->infantry3_hp;
+    ally_hp_cmd.infantry4_hp = msg->infantry4_hp;
+    ally_hp_cmd.sentry_hp = msg->sentry_hp;
+    radar_ally_hp_cmd_pub_->publish(ally_hp_cmd);
+}
+
+void DecisionNode::robotAmmoCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo::ConstPtr &msg)
+{
+    radar_msgs::msg::RadarAllyAmmoCmd ally_ammo_cmd;
+    ally_ammo_cmd.hero_ammo = msg->hero_ammo;
+    ally_ammo_cmd.infantry3_ammo = msg->infantry3_ammo;
+    ally_ammo_cmd.infantry4_ammo = msg->infantry4_ammo;
+    ally_ammo_cmd.aerial_ammo = msg->aerial_ammo;
+    ally_ammo_cmd.sentry_ammo = msg->sentry_ammo;
+    radar_ally_ammo_cmd_pub_->publish(ally_ammo_cmd);
+}
+
+void DecisionNode::fieldStatusCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus::ConstPtr &msg)
+{
+    radar_msgs::msg::RadarAllyFieldCmd ally_field_cmd;
+    ally_field_cmd.remain_coins = msg->remain_coins;
+    ally_field_cmd.total_coins = msg->total_coins;
+    ally_field_cmd.status_flags = msg->status_flags;
+    radar_ally_field_cmd_pub_->publish(ally_field_cmd);
 }
 
 int main(int argc, char **argv)

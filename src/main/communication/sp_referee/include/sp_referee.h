@@ -24,8 +24,11 @@
 #include "radar_msgs/msg/radar_cmd.hpp"
 #include "radar_msgs/msg/map_robot_data.hpp"
 #include "radar_msgs/msg/custom_info.hpp"
-#include "radar_msgs/msg/radar_sentry_buff_cmd.hpp"
 #include "radar_msgs/msg/radar_sentry_position_cmd.hpp"
+#include "radar_msgs/msg/radar_ally_hp_cmd.hpp"
+#include "radar_msgs/msg/radar_ally_ammo_cmd.hpp"
+#include "radar_msgs/msg/radar_ally_field_cmd.hpp"
+#include "radar_msgs/msg/radar_ally_buff_cmd.hpp"
 #include <std_msgs/msg/int8.hpp>
 
 namespace sp_referee
@@ -64,9 +67,12 @@ namespace sp_referee
             void mapRobotDataCallback(const radar_msgs::msg::MapRobotData::ConstPtr &msg);
             // void mapDataCallback(const sp_referee::MapDataMsgConstPtr &msg);
             void customInfoCallback(const radar_msgs::msg::CustomInfo::ConstPtr &msg);
-            void radarSentryBuffCmdCallback(const radar_msgs::msg::RadarSentryBuffCmd::ConstPtr &msg);
             void radarSentryPositionCmdCallback(const radar_msgs::msg::RadarSentryPositionCmd::ConstPtr &msg);
             void radarEnemyDartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg);
+            void radarAllyHpCmdCallback(const radar_msgs::msg::RadarAllyHpCmd::ConstPtr &msg);
+            void radarAllyAmmoCmdCallback(const radar_msgs::msg::RadarAllyAmmoCmd::ConstPtr &msg);
+            void radarAllyFieldCmdCallback(const radar_msgs::msg::RadarAllyFieldCmd::ConstPtr &msg);
+            void radarAllyBuffCmdCallback(const radar_msgs::msg::RadarAllyBuffCmd::ConstPtr &msg);
             
             // rclcpp::Logger logger_;
             serial::Serial serial_;
@@ -100,9 +106,12 @@ namespace sp_referee
             rclcpp::Subscription<radar_msgs::msg::RadarCmd>::SharedPtr radar_cmd_sub_;
             rclcpp::Subscription<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_sub_;
             rclcpp::Subscription<radar_msgs::msg::CustomInfo>::SharedPtr custom_info_sub_;
-            rclcpp::Subscription<radar_msgs::msg::RadarSentryBuffCmd>::SharedPtr radar_sentry_buff_cmd_sub_;
             rclcpp::Subscription<radar_msgs::msg::RadarSentryPositionCmd>::SharedPtr radar_sentry_position_cmd_sub_;
             rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr radar_enemy_dart_warning_sub_;
+            rclcpp::Subscription<radar_msgs::msg::RadarAllyHpCmd>::SharedPtr radar_ally_hp_cmd_sub_;
+            rclcpp::Subscription<radar_msgs::msg::RadarAllyAmmoCmd>::SharedPtr radar_ally_ammo_cmd_sub_;
+            rclcpp::Subscription<radar_msgs::msg::RadarAllyFieldCmd>::SharedPtr radar_ally_field_cmd_sub_;
+            rclcpp::Subscription<radar_msgs::msg::RadarAllyBuffCmd>::SharedPtr radar_ally_buff_cmd_sub_;
 
             // ros::Subscriber manipulator_cmd_sub_;
             // sp_common::ManipulatorCmd manipulator_cmd_;
@@ -112,9 +121,12 @@ namespace sp_referee
             radar_msgs::msg::MapRobotData map_robot_data_ref_;
             // sp_referee::MapDataMsg map_data_ref_;
             radar_msgs::msg::CustomInfo custom_info_ref_;
-            radar_msgs::msg::RadarSentryBuffCmd radar_sentry_buff_cmd_ref_;
             radar_msgs::msg::RadarSentryPositionCmd radar_sentry_position_cmd_ref_;
             std_msgs::msg::Int8 radar_enemy_dart_warning_ref_;
+            radar_msgs::msg::RadarAllyHpCmd radar_ally_hp_cmd_ref_;
+            radar_msgs::msg::RadarAllyAmmoCmd radar_ally_ammo_cmd_ref_;
+            radar_msgs::msg::RadarAllyFieldCmd radar_ally_field_cmd_ref_;
+            radar_msgs::msg::RadarAllyBuffCmd radar_ally_buff_cmd_ref_;
 
             Eigen::Matrix3d last_matrix{};
             Eigen::Matrix3d current_matrix{};

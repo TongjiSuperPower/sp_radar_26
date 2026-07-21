@@ -410,6 +410,52 @@ namespace sp_referee
     typedef struct
     {
         RobotInteractionDataHeader robot_interaction_data_header_;
+        uint8_t source_;
+        int16_t hero_x_;
+        int16_t hero_y_;
+        int16_t engineer_x_;
+        int16_t engineer_y_;
+        int16_t infantry3_x_;
+        int16_t infantry3_y_;
+        int16_t infantry4_x_;
+        int16_t infantry4_y_;
+        int16_t aerial_x_;
+        int16_t aerial_y_;
+        int16_t sentry_x_;
+        int16_t sentry_y_;
+    }__packed RadarSentryPositionCmd; // 0x0211
+
+    typedef struct
+    {
+        RobotInteractionDataHeader robot_interaction_data_header_;
+        uint16_t hero_hp_;
+        uint16_t engineer_hp_;
+        uint16_t infantry3_hp_;
+        uint16_t infantry4_hp_;
+        uint16_t sentry_hp_;
+    }__packed RadarAllyHpCmd; // 0x0212
+
+    typedef struct
+    {
+        RobotInteractionDataHeader robot_interaction_data_header_;
+        uint16_t hero_ammo_;
+        uint16_t infantry3_ammo_;
+        uint16_t infantry4_ammo_;
+        uint16_t aerial_ammo_;
+        uint16_t sentry_ammo_;
+    }__packed RadarAllyAmmoCmd; // 0x0213
+
+    typedef struct
+    {
+        RobotInteractionDataHeader robot_interaction_data_header_;
+        uint16_t remain_coins_;
+        uint16_t total_coins_;
+        uint32_t status_flags_;
+    }__packed RadarAllyFieldCmd; // 0x0214
+
+    typedef struct
+    {
+        RobotInteractionDataHeader robot_interaction_data_header_;
         uint8_t hero_heal_;
         uint16_t hero_cool_;
         uint8_t hero_def_;
@@ -441,23 +487,5 @@ namespace sp_referee
         uint8_t infantry3_status_;
         uint8_t infantry4_status_;
         uint8_t sentry_status_;
-    }__packed RadarSentryBuffCmd; // 0x0211
-
-    typedef struct
-    {
-        RobotInteractionDataHeader robot_interaction_data_header_;
-        uint8_t source_;
-        int16_t hero_x_;
-        int16_t hero_y_;
-        int16_t engineer_x_;
-        int16_t engineer_y_;
-        int16_t infantry3_x_;
-        int16_t infantry3_y_;
-        int16_t infantry4_x_;
-        int16_t infantry4_y_;
-        int16_t aerial_x_;
-        int16_t aerial_y_;
-        int16_t sentry_x_;
-        int16_t sentry_y_;
-    }__packed RadarSentryPositionCmd; // 0x0212
+    }__packed RadarAllyBuffCmd; // 0x0215
 }

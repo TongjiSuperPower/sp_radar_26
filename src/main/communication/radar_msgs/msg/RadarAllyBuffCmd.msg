@@ -1,4 +1,4 @@
-# 0x0301->0x0211 雷达向己方哨兵发送0x0A05的buff数据
+# 0x0301->0x0216 雷达向己方全部机器人广播0x0A05的Buff数据
 uint8 hero_heal
 uint16 hero_cool
 uint8 hero_def

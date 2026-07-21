@@ -22,8 +22,14 @@
 #include "radar_parse_em_wave/msg/radar_parse_em_wave_demod_config.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a05_robot_buff.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a01_robot_position.hpp"
-#include "radar_msgs/msg/radar_sentry_buff_cmd.hpp"
 #include "radar_msgs/msg/radar_sentry_position_cmd.hpp"
+#include "radar_msgs/msg/radar_ally_hp_cmd.hpp"
+#include "radar_msgs/msg/radar_ally_ammo_cmd.hpp"
+#include "radar_msgs/msg/radar_ally_field_cmd.hpp"
+#include "radar_msgs/msg/radar_ally_buff_cmd.hpp"
+#include "radar_parse_em_wave/msg/radar_parse_em_wave0_a02_robot_hp.hpp"
+#include "radar_parse_em_wave/msg/radar_parse_em_wave0_a03_robot_ammo.hpp"
+#include "radar_parse_em_wave/msg/radar_parse_em_wave0_a04_field_status.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/int8.hpp"
 
@@ -138,6 +144,7 @@ private:
     uint16_t robot_id_;
     std::string robot_color_;
     rclcpp::Time last_em_wave_position_time_;
+    bool has_em_wave_opponent_position_;
 
     uint8_t radar_info_chance_;
     bool radar_info_istriggered_;
@@ -147,8 +154,11 @@ private:
     rclcpp::Publisher<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_pub_;
     rclcpp::Publisher<radar_msgs::msg::CustomInfo>::SharedPtr custom_info_pub_;
     rclcpp::Publisher<radar_parse_em_wave::msg::RadarParseEmWaveDemodConfig>::SharedPtr radar_demod_config_pub_;
-    rclcpp::Publisher<radar_msgs::msg::RadarSentryBuffCmd>::SharedPtr radar_sentry_buff_cmd_pub_;
     rclcpp::Publisher<radar_msgs::msg::RadarSentryPositionCmd>::SharedPtr radar_sentry_position_cmd_pub_;
+    rclcpp::Publisher<radar_msgs::msg::RadarAllyHpCmd>::SharedPtr radar_ally_hp_cmd_pub_;
+    rclcpp::Publisher<radar_msgs::msg::RadarAllyAmmoCmd>::SharedPtr radar_ally_ammo_cmd_pub_;
+    rclcpp::Publisher<radar_msgs::msg::RadarAllyFieldCmd>::SharedPtr radar_ally_field_cmd_pub_;
+    rclcpp::Publisher<radar_msgs::msg::RadarAllyBuffCmd>::SharedPtr radar_ally_buff_cmd_pub_;
     
     rclcpp::Subscription<radar_msgs::msg::GameStatus>::SharedPtr game_status_sub_;
     rclcpp::Subscription<radar_msgs::msg::GameRobotHP>::SharedPtr game_robot_hp_sub_;
@@ -162,6 +172,9 @@ private:
     rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr dart_warning_sub_;
     rclcpp::Subscription<radar_parse_em_wave::msg::RadarParseEmWave0A05RobotBuff>::SharedPtr robot_buff_sub_;
     rclcpp::Subscription<radar_parse_em_wave::msg::RadarParseEmWave0A01RobotPosition>::SharedPtr robot_position_sub_;
+    rclcpp::Subscription<radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp>::SharedPtr robot_hp_sub_;
+    rclcpp::Subscription<radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo>::SharedPtr robot_ammo_sub_;
+    rclcpp::Subscription<radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus>::SharedPtr field_status_sub_;
 
     radar_msgs::msg::GameStatus game_status_ref_;
     radar_msgs::msg::GameRobotHP game_robot_hp_ref_;
@@ -193,6 +206,9 @@ private:
     void dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg);
     void robotBuffCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A05RobotBuff::ConstPtr &msg);
     void robotPositionCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A01RobotPosition::ConstPtr &msg);
+    void robotHpCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp::ConstPtr &msg);
+    void robotAmmoCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo::ConstPtr &msg);
+    void fieldStatusCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus::ConstPtr &msg);
 
     void pubMapRobotData();
     void pubCustomInfo();
