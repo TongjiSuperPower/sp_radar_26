@@ -50,7 +50,7 @@ namespace sp_referee
                 {
                     int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
                     for (int i = base; i < base + 7; ++i) {
-                        if (i == base + 4 || i == base + 6) continue; // skip inf5 and sentry
+                        if (i == base + 4) continue; // skip inf5
                         data_len = static_cast<int>(sizeof(sp_referee::RadarEnemyDartWarning));
                         frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
                         sp_referee::RadarEnemyDartWarning cmd;

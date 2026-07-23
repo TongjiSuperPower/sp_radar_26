@@ -40,24 +40,24 @@
 
 ## 0x0211 — 位置信息（31 字节）
 
-> 仅发哨兵。`source=1` 为信息波数据，`source=0` 为雷达自身定位。
+> 仅发哨兵。`source=1` 为信息波数据，`source=0` 为雷达自身定位。单位均为 cm。
 
 | 偏移 | 长度 | 类型 | 字段 | 单位 |
 |------|------|------|------|------|
 | 0 | 6 | — | header | 公共帧头 |
 | 6 | 1 | uint8 | source | 0=雷达定位，1=信息波 |
-| 7 | 2 | int16 | hero_x | m |
-| 9 | 2 | int16 | hero_y | m |
-| 11 | 2 | int16 | engineer_x | m |
-| 13 | 2 | int16 | engineer_y | m |
-| 15 | 2 | int16 | infantry3_x | m |
-| 17 | 2 | int16 | infantry3_y | m |
-| 19 | 2 | int16 | infantry4_x | m |
-| 21 | 2 | int16 | infantry4_y | m |
-| 23 | 2 | int16 | aerial_x | m |
-| 25 | 2 | int16 | aerial_y | m |
-| 27 | 2 | int16 | sentry_x | m |
-| 29 | 2 | int16 | sentry_y | m |
+| 7 | 2 | int16 | hero_x | cm |
+| 9 | 2 | int16 | hero_y | cm |
+| 11 | 2 | int16 | engineer_x | cm |
+| 13 | 2 | int16 | engineer_y | cm |
+| 15 | 2 | int16 | infantry3_x | cm |
+| 17 | 2 | int16 | infantry3_y | cm |
+| 19 | 2 | int16 | infantry4_x | cm |
+| 21 | 2 | int16 | infantry4_y | cm |
+| 23 | 2 | int16 | aerial_x | cm |
+| 25 | 2 | int16 | aerial_y | cm |
+| 27 | 2 | int16 | sentry_x | cm |
+| 29 | 2 | int16 | sentry_y | cm |
 
 ---
 

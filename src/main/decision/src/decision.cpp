@@ -11,6 +11,7 @@ DecisionNode::DecisionNode() : Node("decision_node")
     radar_info_chance_ = 0;
     radar_info_istriggered_ = false;
     radar_cmd_cnt_ = 0;
+    last_big_energy_trigger_stage_time_ = UINT16_MAX;
 
     radar_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarCmd>("/radar_cmd", 1);
     map_robot_data_pub_ = this->create_publisher<radar_msgs::msg::MapRobotData>("/map_robot_data", 1);
@@ -179,17 +180,23 @@ void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPt
     
     if (radar_info_chance_ >= 1 && !radar_info_istriggered_)
     {
-        if (stage_remain_time_ < (5 * 60 + 21) && stage_remain_time_ > (4 * 60 + 49)) // 5min20s~4min50s
+        // 比赛结束前3分钟仍未触发，则触发第一次双倍易伤
+        if (stage_remain_time_ < (3 * 60 + 5) && stage_remain_time_ > (2 * 60 + 55)) // 3min05s~2min55s
         {
             if(radar_cmd_cnt_ == 0)
+            {
                 pushCustomInfo(DOUBLE_VULNERABLE);
-            pushRadarCmd(1, 0, secret_key_); // 第一次
+                pushRadarCmd(1, 0, secret_key_);
+            }
         }
-        if (stage_remain_time_ < (4 * 60 + 1) && stage_remain_time_ > (3 * 60 + 29)) // 4min0s~3min30s
+        // 比赛结束前2分钟仍未触发，则触发第二次双倍易伤
+        if (stage_remain_time_ < (2 * 60 + 5) && stage_remain_time_ > (1 * 60 + 55)) // 2min05s~1min55s
         {
-            if(radar_cmd_cnt_ == 1 || radar_cmd_cnt_ == 0)
+            if(radar_cmd_cnt_ <= 1)
+            {
                 pushCustomInfo(DOUBLE_VULNERABLE);
-            pushRadarCmd(2, 0, secret_key_); // 第二次
+                pushRadarCmd(2, 0, secret_key_);
+            }
         }
     }
 }
@@ -203,19 +210,34 @@ void DecisionNode::gameRobotHpCallback(const radar_msgs::msg::GameRobotHP::Const
 void DecisionNode::eventDataCallback(const radar_msgs::msg::EventData::ConstPtr &msg)
 {
     event_data_ref_ = *msg;
-
-    is_small_energy_machine_activated_ = (event_data_ref_.event_data >> 28) & 0x01; // 4Byte bit[3]
-    is_big_energy_machine_activated_ = (event_data_ref_.event_data >> 27) & 0x01;   // 4Byte bit[4]
+    is_small_energy_machine_activated_ = (event_data_ref_.event_data >> 3) & 0x01; // 4Byte bit[3]
+    is_big_energy_machine_activated_ = (event_data_ref_.event_data >> 5) & 0x01;   // 4Byte bit[4]
     is_someone_in_central_highland_ = (event_data_ref_.event_data >> 25) & 0x03;    // 4Byte bit[5:6]
 
-    if (game_process_ != 0x01) // RMUC
+    if (game_type_ != 0x01) // RMUC
         return;
 
     if (radar_info_chance_ >= 1 && !radar_info_istriggered_)
     {
-        if (is_small_energy_machine_activated_ || is_big_energy_machine_activated_)
+        std::cout << "EventData received:" << "big_energy_machine=" << static_cast<int>(is_big_energy_machine_activated_)
+                  << std::endl;
+        // 大能量机关激活时触发双倍易伤（60s冷却，防止同一次激活重复触发）
+        bool cooldown_elapsed = (last_big_energy_trigger_stage_time_ - stage_remain_time_) >= 60;
+        if (is_big_energy_machine_activated_ && cooldown_elapsed)
         {
-            pushRadarCmd(2, 0, secret_key_); // 小能量机关或大能量机关被触发，发布双倍易伤
+            if (radar_cmd_cnt_ == 0)
+            {
+                pushCustomInfo(DOUBLE_VULNERABLE);
+                pushRadarCmd(1, 0, secret_key_); // 大能量机关被激活，第一次双倍易伤
+                std::cout << "Big energy machine activated, first DOUBLE_VULNERABLE triggered." << std::endl;
+            }
+            else if (radar_cmd_cnt_ == 1)
+            {
+                pushCustomInfo(DOUBLE_VULNERABLE);
+                pushRadarCmd(2, 0, secret_key_); // 大能量机关被激活，第二次双倍易伤
+                std::cout << "Big energy machine activated, second DOUBLE_VULNERABLE triggered." << std::endl;
+            }
+            last_big_energy_trigger_stage_time_ = stage_remain_time_;
         }
     }
 }
@@ -231,6 +253,7 @@ void DecisionNode::radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr 
 {
     radar_info_ref_ = *msg;
     radar_info_chance_ = radar_info_ref_.radar_info_chance;           // 1Byte bit[0:1]
+    //std::cout << "Radar info received: chance=" << static_cast<int>(radar_info_chance_) << std::endl;
     radar_info_istriggered_ = radar_info_ref_.radar_info_istriggered; // 1Byte bit[2]
 
     // Publish DemodConfig with team color and interference level
@@ -280,22 +303,22 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
         memcpy(&map_robot_data_pc_ref_.opponent_hero_position_x, em_opponent, sizeof(em_opponent));
     }
 
-    // 仅在没有信息波位置时(超过500ms未收到)发送雷达定位结果(source=0)
+    // 仅在没有信息波位置时(超过500ms未收到)发送雷达定位结果(source=0, 单位: cm)
     if ((this->now() - last_em_wave_position_time_).seconds() > 0.5) {
         radar_msgs::msg::RadarSentryPositionCmd radar_pos_cmd;
         radar_pos_cmd.source = 0;
-        radar_pos_cmd.hero_x = map_robot_data_pc_ref_.opponent_hero_position_x / 100;
-        radar_pos_cmd.hero_y = map_robot_data_pc_ref_.opponent_hero_position_y / 100;
-        radar_pos_cmd.engineer_x = map_robot_data_pc_ref_.opponent_engineer_position_x / 100;
-        radar_pos_cmd.engineer_y = map_robot_data_pc_ref_.opponent_engineer_position_y / 100;
-        radar_pos_cmd.infantry3_x = map_robot_data_pc_ref_.opponent_infantry_3_position_x / 100;
-        radar_pos_cmd.infantry3_y = map_robot_data_pc_ref_.opponent_infantry_3_position_y / 100;
-        radar_pos_cmd.infantry4_x = map_robot_data_pc_ref_.opponent_infantry_4_position_x / 100;
-        radar_pos_cmd.infantry4_y = map_robot_data_pc_ref_.opponent_infantry_4_position_y / 100;
-        radar_pos_cmd.aerial_x = map_robot_data_pc_ref_.opponent_aerial_position_x / 100;
-        radar_pos_cmd.aerial_y = map_robot_data_pc_ref_.opponent_aerial_position_y / 100;
-        radar_pos_cmd.sentry_x = map_robot_data_pc_ref_.opponent_sentry_position_x / 100;
-        radar_pos_cmd.sentry_y = map_robot_data_pc_ref_.opponent_sentry_position_y / 100;
+        radar_pos_cmd.hero_x = map_robot_data_pc_ref_.opponent_hero_position_x;
+        radar_pos_cmd.hero_y = map_robot_data_pc_ref_.opponent_hero_position_y;
+        radar_pos_cmd.engineer_x = map_robot_data_pc_ref_.opponent_engineer_position_x;
+        radar_pos_cmd.engineer_y = map_robot_data_pc_ref_.opponent_engineer_position_y;
+        radar_pos_cmd.infantry3_x = map_robot_data_pc_ref_.opponent_infantry_3_position_x;
+        radar_pos_cmd.infantry3_y = map_robot_data_pc_ref_.opponent_infantry_3_position_y;
+        radar_pos_cmd.infantry4_x = map_robot_data_pc_ref_.opponent_infantry_4_position_x;
+        radar_pos_cmd.infantry4_y = map_robot_data_pc_ref_.opponent_infantry_4_position_y;
+        radar_pos_cmd.aerial_x = map_robot_data_pc_ref_.opponent_aerial_position_x;
+        radar_pos_cmd.aerial_y = map_robot_data_pc_ref_.opponent_aerial_position_y;
+        radar_pos_cmd.sentry_x = map_robot_data_pc_ref_.opponent_sentry_position_x;
+        radar_pos_cmd.sentry_y = map_robot_data_pc_ref_.opponent_sentry_position_y;
         radar_sentry_position_cmd_pub_->publish(radar_pos_cmd);
     }
 }
@@ -373,21 +396,21 @@ void DecisionNode::robotPositionCallback(const radar_parse_em_wave::msg::RadarPa
     map_robot_data_pc_ref_.opponent_sentry_position_x = static_cast<uint16_t>(msg->sentry_x);
     map_robot_data_pc_ref_.opponent_sentry_position_y = static_cast<uint16_t>(msg->sentry_y);
 
-    // 将0x0A01信息波位置数据(source=1)转发给己方哨兵(单位: m)
+    // 将0x0A01信息波位置数据(source=1)转发给己方哨兵(单位: cm)
     radar_msgs::msg::RadarSentryPositionCmd sentry_pos_cmd;
     sentry_pos_cmd.source = 1;
-    sentry_pos_cmd.hero_x = msg->hero_x / 100;
-    sentry_pos_cmd.hero_y = msg->hero_y / 100;
-    sentry_pos_cmd.engineer_x = msg->engineer_x / 100;
-    sentry_pos_cmd.engineer_y = msg->engineer_y / 100;
-    sentry_pos_cmd.infantry3_x = msg->infantry3_x / 100;
-    sentry_pos_cmd.infantry3_y = msg->infantry3_y / 100;
-    sentry_pos_cmd.infantry4_x = msg->infantry4_x / 100;
-    sentry_pos_cmd.infantry4_y = msg->infantry4_y / 100;
-    sentry_pos_cmd.aerial_x = msg->aerial_x / 100;
-    sentry_pos_cmd.aerial_y = msg->aerial_y / 100;
-    sentry_pos_cmd.sentry_x = msg->sentry_x / 100;
-    sentry_pos_cmd.sentry_y = msg->sentry_y / 100;
+    sentry_pos_cmd.hero_x = msg->hero_x;
+    sentry_pos_cmd.hero_y = msg->hero_y;
+    sentry_pos_cmd.engineer_x = msg->engineer_x;
+    sentry_pos_cmd.engineer_y = msg->engineer_y;
+    sentry_pos_cmd.infantry3_x = msg->infantry3_x;
+    sentry_pos_cmd.infantry3_y = msg->infantry3_y;
+    sentry_pos_cmd.infantry4_x = msg->infantry4_x;
+    sentry_pos_cmd.infantry4_y = msg->infantry4_y;
+    sentry_pos_cmd.aerial_x = msg->aerial_x;
+    sentry_pos_cmd.aerial_y = msg->aerial_y;
+    sentry_pos_cmd.sentry_x = msg->sentry_x;
+    sentry_pos_cmd.sentry_y = msg->sentry_y;
     radar_sentry_position_cmd_pub_->publish(sentry_pos_cmd);
 }
 
