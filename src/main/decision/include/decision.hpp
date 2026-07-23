@@ -150,7 +150,7 @@ private:
     bool radar_info_istriggered_;
     uint8_t radar_cmd_cnt_;
     uint16_t last_big_energy_trigger_stage_time_;
-a
+
     rclcpp::Publisher<radar_msgs::msg::RadarCmd>::SharedPtr radar_cmd_pub_;
     rclcpp::Publisher<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_pub_;
     rclcpp::Publisher<radar_msgs::msg::CustomInfo>::SharedPtr custom_info_pub_;
