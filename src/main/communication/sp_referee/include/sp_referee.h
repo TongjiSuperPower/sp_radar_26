@@ -40,7 +40,7 @@ namespace sp_referee
 
             bool init();
             void read();
-            void write(uint16_t write_cmd, uint16_t child_cmd = 0);
+            void write(uint16_t write_cmd, uint16_t child_cmd = 0, uint16_t receiver_id = 0);
 
             // void sendUi();
             // void sendString();

@@ -98,7 +98,7 @@ namespace sp_referee
     void Referee::radarCmdCallback(const radar_msgs::msg::RadarCmd::ConstPtr &msg)
     {
         radar_cmd_ref_ = *msg;
-        write(0x0301, 0x0121);
+        write(0x0301, 0x0121, 0x8080);
     }
 
     void Referee::mapRobotDataCallback(const radar_msgs::msg::MapRobotData::ConstPtr &msg)
@@ -116,37 +116,59 @@ namespace sp_referee
     void Referee::radarSentryPositionCmdCallback(const radar_msgs::msg::RadarSentryPositionCmd::ConstPtr &msg)
     {
         radar_sentry_position_cmd_ref_ = *msg;
-        write(0x0301, 0x0211);
+        uint16_t receiver_id = (robot_info_.robot_id_ >= 100) ? sp_referee::BLUE_SENTRY : sp_referee::RED_SENTRY;
+        write(0x0301, 0x0211, receiver_id);
     }
 
     void Referee::radarEnemyDartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
     {
         radar_enemy_dart_warning_ref_ = *msg;
-        write(0x0301, 0x0210);
+        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
+        for (int i = base; i < base + 7; ++i) {
+            if (i == base + 4) continue; // skip inf5
+            write(0x0301, 0x0210, i);
+        }
     }
 
     void Referee::radarAllyHpCmdCallback(const radar_msgs::msg::RadarAllyHpCmd::ConstPtr &msg)
     {
         radar_ally_hp_cmd_ref_ = *msg;
-        write(0x0301, 0x0212);
+        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
+        for (int i = base; i < base + 7; ++i) {
+            if (i == base + 4) continue; // skip inf5
+            write(0x0301, 0x0212, i);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
     }
 
     void Referee::radarAllyAmmoCmdCallback(const radar_msgs::msg::RadarAllyAmmoCmd::ConstPtr &msg)
     {
         radar_ally_ammo_cmd_ref_ = *msg;
-        write(0x0301, 0x0213);
+        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
+        for (int i = base; i < base + 7; ++i) {
+            if (i == base + 4) continue; // skip inf5
+            write(0x0301, 0x0213, i);
+        }
     }
 
     void Referee::radarAllyFieldCmdCallback(const radar_msgs::msg::RadarAllyFieldCmd::ConstPtr &msg)
     {
         radar_ally_field_cmd_ref_ = *msg;
-        write(0x0301, 0x0214);
+        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
+        for (int i = base; i < base + 7; ++i) {
+            if (i == base + 4) continue; // skip inf5
+            write(0x0301, 0x0214, i);
+        }
     }
 
     void Referee::radarAllyBuffCmdCallback(const radar_msgs::msg::RadarAllyBuffCmd::ConstPtr &msg)
     {
         radar_ally_buff_cmd_ref_ = *msg;
-        write(0x0301, 0x0215);
+        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
+        for (int i = base; i < base + 7; ++i) {
+            if (i == base + 4) continue; // skip inf5
+            write(0x0301, 0x0215, i);
+        }
     }
 
 } // namespace sp_referee
