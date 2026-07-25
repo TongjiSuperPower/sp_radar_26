@@ -28,8 +28,9 @@ DecisionNode::DecisionNode() : Node("decision_node")
     custom_info_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(350), std::bind(&DecisionNode::pubCustomInfo, this)); // 3Hz
     radar_ally_combined_pub_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(1000), std::bind(&DecisionNode::pubRadarAllyCombinedData, this)); // 1Hz
-
+        std::chrono::milliseconds(1000), std::bind(&DecisionNode::pubRadarAllyCombinedInteractiveData, this)); // 1Hz
+    radar_ally_combined_data_pub_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(100), std::bind(&DecisionNode::pubRadarAllyCombinedData, this)); // 10Hz
     game_status_sub_ = this->create_subscription<radar_msgs::msg::GameStatus>(
         "/game_status", 10, std::bind(&DecisionNode::gameStatusCallback, this, std::placeholders::_1));
     game_robot_hp_sub_ = this->create_subscription<radar_msgs::msg::GameRobotHP>(
@@ -385,7 +386,7 @@ void DecisionNode::dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
 
 void DecisionNode::robotBuffCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A05RobotBuff::ConstPtr &msg)
 {
-    // 缓存0x0A05数据，等待1Hz定时器统一发布
+    // 缓存0x0A05数据
     latest_buff_data_ = *msg;
     has_buff_data_ = true;
 }
@@ -433,21 +434,21 @@ void DecisionNode::robotPositionCallback(const radar_parse_em_wave::msg::RadarPa
 
 void DecisionNode::robotHpCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp::ConstPtr &msg)
 {
-    // 缓存0x0A02数据，等待1Hz定时器统一发布
+    // 缓存0x0A02数据
     latest_hp_data_ = *msg;
     has_hp_data_ = true;
 }
 
 void DecisionNode::robotAmmoCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo::ConstPtr &msg)
 {
-    // 缓存0x0A03数据，等待1Hz定时器统一发布
+    // 缓存0x0A03数据
     latest_ammo_data_ = *msg;
     has_ammo_data_ = true;
 }
 
 void DecisionNode::fieldStatusCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus::ConstPtr &msg)
 {
-    // 缓存0x0A04数据，等待1Hz定时器统一发布
+    // 缓存0x0A04数据
     latest_field_data_ = *msg;
     has_field_data_ = true;
 }
@@ -522,12 +523,6 @@ void DecisionNode::pubRadarAllyCombinedData()
     }
 
     radar_ally_combined_pub_->publish(combined_data);
-    // 推送0x0212发送指令到统一交互数据队列（发送给所有己方机器人）
-    int base = (robot_id_ >= 100) ? 101 : 1;
-    for (int i = base; i < base + 7; ++i) {
-        if (i == base + 4) continue; // skip inf5
-        pushInteractiveData(0x0212, i);
-    }
 
     // 发布后清零缓存，等待下一轮数据到达
     latest_hp_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp();
@@ -538,6 +533,16 @@ void DecisionNode::pubRadarAllyCombinedData()
     has_ammo_data_ = false;
     has_field_data_ = false;
     has_buff_data_ = false;
+}
+
+void DecisionNode::pubRadarAllyCombinedInteractiveData()
+{
+    // 推送0x0212发送指令到统一交互数据队列（发送给所有己方机器人）
+    int base = (robot_id_ >= 100) ? 101 : 1;
+    for (int i = base; i < base + 7; ++i) {
+        if (i == base + 4) continue; // skip inf5
+        pushInteractiveData(0x0212, i);
+    }
 }
 
 int main(int argc, char **argv)

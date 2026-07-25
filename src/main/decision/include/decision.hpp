@@ -202,7 +202,7 @@ private:
     rclcpp::TimerBase::SharedPtr radar_cmd_pub_timer_;
     rclcpp::TimerBase::SharedPtr custom_info_pub_timer_;
     rclcpp::TimerBase::SharedPtr radar_ally_combined_pub_timer_;
-
+    rclcpp::TimerBase::SharedPtr radar_ally_combined_data_pub_timer_;
     std::queue<radar_msgs::msg::CustomInfo> custom_info_queue_;
     std::queue<radar_msgs::msg::RadarCmd> radar_cmd_queue_;
     // 0x0301统一交互数据队列，push_front保证0x0121最优先发送
@@ -226,6 +226,7 @@ private:
     void pubCustomInfo();
     void pubRadarCmd();
     void pubRadarAllyCombinedData();
+    void pubRadarAllyCombinedInteractiveData();
 
     void pushCustomInfo(int custom_info_id);
     void pushRadarCmd(int times, uint8_t password_cmd ,std::string password);    // 发布双倍易伤，参数：次数
