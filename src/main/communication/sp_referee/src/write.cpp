@@ -83,91 +83,62 @@ namespace sp_referee
                     pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&radar_sentry_position_cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
                     break;
                 }
-                case sp_referee::RADAR_ALLY_HP_CMD:
+                case sp_referee::RADAR_ALLY_COMBINED_CMD: // 0x0212 合并发送0x0A02~0x0A05全部数据
                 {
-                    data_len = static_cast<int>(sizeof(sp_referee::RadarAllyHpCmd));
+                    data_len = static_cast<int>(sizeof(sp_referee::RadarAllyCombinedCmd));
                     frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
-                    sp_referee::RadarAllyHpCmd cmd;
-                    cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ALLY_HP_CMD;
+                    sp_referee::RadarAllyCombinedCmd cmd;
+                    cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ALLY_COMBINED_CMD;
                     cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
                     cmd.robot_interaction_data_header_.receiver_id_ = receiver_id;
-                    cmd.hero_hp_ = radar_ally_hp_cmd_ref_.hero_hp;
-                    cmd.engineer_hp_ = radar_ally_hp_cmd_ref_.engineer_hp;
-                    cmd.infantry3_hp_ = radar_ally_hp_cmd_ref_.infantry3_hp;
-                    cmd.infantry4_hp_ = radar_ally_hp_cmd_ref_.infantry4_hp;
-                    cmd.sentry_hp_ = radar_ally_hp_cmd_ref_.sentry_hp;
-                    pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
-                    break;
-                }
-                case sp_referee::RADAR_ALLY_AMMO_CMD:
-                {
-                    data_len = static_cast<int>(sizeof(sp_referee::RadarAllyAmmoCmd));
-                    frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
-                    sp_referee::RadarAllyAmmoCmd cmd;
-                    cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ALLY_AMMO_CMD;
-                    cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
-                    cmd.robot_interaction_data_header_.receiver_id_ = receiver_id;
-                    cmd.hero_ammo_ = radar_ally_ammo_cmd_ref_.hero_ammo;
-                    cmd.infantry3_ammo_ = radar_ally_ammo_cmd_ref_.infantry3_ammo;
-                    cmd.infantry4_ammo_ = radar_ally_ammo_cmd_ref_.infantry4_ammo;
-                    cmd.aerial_ammo_ = radar_ally_ammo_cmd_ref_.aerial_ammo;
-                    cmd.sentry_ammo_ = radar_ally_ammo_cmd_ref_.sentry_ammo;
-                    pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
-                    break;
-                }
-                case sp_referee::RADAR_ALLY_FIELD_CMD:
-                {
-                    data_len = static_cast<int>(sizeof(sp_referee::RadarAllyFieldCmd));
-                    frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
-                    sp_referee::RadarAllyFieldCmd cmd;
-                    cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ALLY_FIELD_CMD;
-                    cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
-                    cmd.robot_interaction_data_header_.receiver_id_ = receiver_id;
-                    cmd.remain_coins_ = radar_ally_field_cmd_ref_.remain_coins;
-                    cmd.total_coins_ = radar_ally_field_cmd_ref_.total_coins;
-                    cmd.status_flags_ = radar_ally_field_cmd_ref_.status_flags;
-                    pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
-                    break;
-                }
-                case sp_referee::RADAR_ALLY_BUFF_CMD:
-                {
-                    data_len = static_cast<int>(sizeof(sp_referee::RadarAllyBuffCmd));
-                    frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
-                    sp_referee::RadarAllyBuffCmd cmd;
-                    cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_ALLY_BUFF_CMD;
-                    cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
-                    cmd.robot_interaction_data_header_.receiver_id_ = receiver_id;
-                    cmd.hero_heal_ = radar_ally_buff_cmd_ref_.hero_heal;
-                    cmd.hero_cool_ = radar_ally_buff_cmd_ref_.hero_cool;
-                    cmd.hero_def_ = radar_ally_buff_cmd_ref_.hero_def;
-                    cmd.hero_vuln_ = radar_ally_buff_cmd_ref_.hero_vuln;
-                    cmd.hero_atk_ = radar_ally_buff_cmd_ref_.hero_atk;
-                    cmd.engineer_heal_ = radar_ally_buff_cmd_ref_.engineer_heal;
-                    cmd.engineer_cool_ = radar_ally_buff_cmd_ref_.engineer_cool;
-                    cmd.engineer_def_ = radar_ally_buff_cmd_ref_.engineer_def;
-                    cmd.engineer_vuln_ = radar_ally_buff_cmd_ref_.engineer_vuln;
-                    cmd.engineer_atk_ = radar_ally_buff_cmd_ref_.engineer_atk;
-                    cmd.infantry3_heal_ = radar_ally_buff_cmd_ref_.infantry3_heal;
-                    cmd.infantry3_cool_ = radar_ally_buff_cmd_ref_.infantry3_cool;
-                    cmd.infantry3_def_ = radar_ally_buff_cmd_ref_.infantry3_def;
-                    cmd.infantry3_vuln_ = radar_ally_buff_cmd_ref_.infantry3_vuln;
-                    cmd.infantry3_atk_ = radar_ally_buff_cmd_ref_.infantry3_atk;
-                    cmd.infantry4_heal_ = radar_ally_buff_cmd_ref_.infantry4_heal;
-                    cmd.infantry4_cool_ = radar_ally_buff_cmd_ref_.infantry4_cool;
-                    cmd.infantry4_def_ = radar_ally_buff_cmd_ref_.infantry4_def;
-                    cmd.infantry4_vuln_ = radar_ally_buff_cmd_ref_.infantry4_vuln;
-                    cmd.infantry4_atk_ = radar_ally_buff_cmd_ref_.infantry4_atk;
-                    cmd.sentry_heal_ = radar_ally_buff_cmd_ref_.sentry_heal;
-                    cmd.sentry_cool_ = radar_ally_buff_cmd_ref_.sentry_cool;
-                    cmd.sentry_def_ = radar_ally_buff_cmd_ref_.sentry_def;
-                    cmd.sentry_vuln_ = radar_ally_buff_cmd_ref_.sentry_vuln;
-                    cmd.sentry_atk_ = radar_ally_buff_cmd_ref_.sentry_atk;
-                    cmd.sentry_posture_ = radar_ally_buff_cmd_ref_.sentry_posture;
-                    cmd.hero_status_ = radar_ally_buff_cmd_ref_.hero_status;
-                    cmd.engineer_status_ = radar_ally_buff_cmd_ref_.engineer_status;
-                    cmd.infantry3_status_ = radar_ally_buff_cmd_ref_.infantry3_status;
-                    cmd.infantry4_status_ = radar_ally_buff_cmd_ref_.infantry4_status;
-                    cmd.sentry_status_ = radar_ally_buff_cmd_ref_.sentry_status;
+                    // 0x0A02 HP数据
+                    cmd.hero_hp_ = radar_ally_combined_ref_.hero_hp;
+                    cmd.engineer_hp_ = radar_ally_combined_ref_.engineer_hp;
+                    cmd.infantry3_hp_ = radar_ally_combined_ref_.infantry3_hp;
+                    cmd.infantry4_hp_ = radar_ally_combined_ref_.infantry4_hp;
+                    cmd.sentry_hp_ = radar_ally_combined_ref_.sentry_hp;
+                    // 0x0A03 弹药数据
+                    cmd.hero_ammo_ = radar_ally_combined_ref_.hero_ammo;
+                    cmd.infantry3_ammo_ = radar_ally_combined_ref_.infantry3_ammo;
+                    cmd.infantry4_ammo_ = radar_ally_combined_ref_.infantry4_ammo;
+                    cmd.aerial_ammo_ = radar_ally_combined_ref_.aerial_ammo;
+                    cmd.sentry_ammo_ = radar_ally_combined_ref_.sentry_ammo;
+                    // 0x0A04 场地状态数据
+                    cmd.remain_coins_ = radar_ally_combined_ref_.remain_coins;
+                    cmd.total_coins_ = radar_ally_combined_ref_.total_coins;
+                    cmd.status_flags_ = radar_ally_combined_ref_.status_flags;
+                    // 0x0A05 Buff数据
+                    cmd.hero_heal_ = radar_ally_combined_ref_.hero_heal;
+                    cmd.hero_cool_ = radar_ally_combined_ref_.hero_cool;
+                    cmd.hero_def_ = radar_ally_combined_ref_.hero_def;
+                    cmd.hero_vuln_ = radar_ally_combined_ref_.hero_vuln;
+                    cmd.hero_atk_ = radar_ally_combined_ref_.hero_atk;
+                    cmd.engineer_heal_ = radar_ally_combined_ref_.engineer_heal;
+                    cmd.engineer_cool_ = radar_ally_combined_ref_.engineer_cool;
+                    cmd.engineer_def_ = radar_ally_combined_ref_.engineer_def;
+                    cmd.engineer_vuln_ = radar_ally_combined_ref_.engineer_vuln;
+                    cmd.engineer_atk_ = radar_ally_combined_ref_.engineer_atk;
+                    cmd.infantry3_heal_ = radar_ally_combined_ref_.infantry3_heal;
+                    cmd.infantry3_cool_ = radar_ally_combined_ref_.infantry3_cool;
+                    cmd.infantry3_def_ = radar_ally_combined_ref_.infantry3_def;
+                    cmd.infantry3_vuln_ = radar_ally_combined_ref_.infantry3_vuln;
+                    cmd.infantry3_atk_ = radar_ally_combined_ref_.infantry3_atk;
+                    cmd.infantry4_heal_ = radar_ally_combined_ref_.infantry4_heal;
+                    cmd.infantry4_cool_ = radar_ally_combined_ref_.infantry4_cool;
+                    cmd.infantry4_def_ = radar_ally_combined_ref_.infantry4_def;
+                    cmd.infantry4_vuln_ = radar_ally_combined_ref_.infantry4_vuln;
+                    cmd.infantry4_atk_ = radar_ally_combined_ref_.infantry4_atk;
+                    cmd.sentry_heal_ = radar_ally_combined_ref_.sentry_heal;
+                    cmd.sentry_cool_ = radar_ally_combined_ref_.sentry_cool;
+                    cmd.sentry_def_ = radar_ally_combined_ref_.sentry_def;
+                    cmd.sentry_vuln_ = radar_ally_combined_ref_.sentry_vuln;
+                    cmd.sentry_atk_ = radar_ally_combined_ref_.sentry_atk;
+                    cmd.sentry_posture_ = radar_ally_combined_ref_.sentry_posture;
+                    cmd.hero_status_ = radar_ally_combined_ref_.hero_status;
+                    cmd.engineer_status_ = radar_ally_combined_ref_.engineer_status;
+                    cmd.infantry3_status_ = radar_ally_combined_ref_.infantry3_status;
+                    cmd.infantry4_status_ = radar_ally_combined_ref_.infantry4_status;
+                    cmd.sentry_status_ = radar_ally_combined_ref_.sentry_status;
                     pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
                     break;
                 }

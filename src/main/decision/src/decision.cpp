@@ -18,10 +18,8 @@ DecisionNode::DecisionNode() : Node("decision_node")
     custom_info_pub_ = this->create_publisher<radar_msgs::msg::CustomInfo>("/custom_info", 1);
     radar_demod_config_pub_ = this->create_publisher<radar_parse_em_wave::msg::RadarParseEmWaveDemodConfig>("/rmuc/demod_config", 1);
     radar_sentry_position_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarSentryPositionCmd>("/radar_sentry_position_cmd", 1);
-    radar_ally_hp_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyHpCmd>("/radar_ally_hp_cmd", 1);
-    radar_ally_ammo_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyAmmoCmd>("/radar_ally_ammo_cmd", 1);
-    radar_ally_field_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyFieldCmd>("/radar_ally_field_cmd", 1);
-    radar_ally_buff_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyBuffCmd>("/radar_ally_buff_cmd", 1);
+    radar_ally_combined_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyCombinedData>("/radar_ally_combined_data", 1);
+    interactive_data_pub_ = this->create_publisher<radar_msgs::msg::InteractiveDataCmd>("/interactive_data_cmd", 1);
 
     map_robot_data_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(200), std::bind(&DecisionNode::pubMapRobotData, this));   // 5Hz
@@ -29,6 +27,8 @@ DecisionNode::DecisionNode() : Node("decision_node")
         std::chrono::milliseconds(35), std::bind(&DecisionNode::pubRadarCmd, this));    // 30Hz
     custom_info_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(350), std::bind(&DecisionNode::pubCustomInfo, this)); // 3Hz
+    radar_ally_combined_pub_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(1000), std::bind(&DecisionNode::pubRadarAllyCombinedData, this)); // 1Hz
 
     game_status_sub_ = this->create_subscription<radar_msgs::msg::GameStatus>(
         "/game_status", 10, std::bind(&DecisionNode::gameStatusCallback, this, std::placeholders::_1));
@@ -68,20 +68,37 @@ DecisionNode::~DecisionNode()
 
 void DecisionNode::pubMapRobotData()
 {
+    // 检查是否有新的位置数据到达，若全无则跳过发布
+    if (!has_map_robot_data_) {
+        return;
+    }
+
     radar_msgs::msg::MapRobotData map_robot_data;
     map_robot_data = map_robot_data_pc_ref_;
     map_robot_data.header.stamp = this->now();
 
     map_robot_data_pub_->publish(map_robot_data);
+
+    // 发布后清零缓存，等待下一轮数据到达
+    map_robot_data_pc_ref_ = radar_msgs::msg::MapRobotData();
     has_em_wave_opponent_position_ = false;
+    has_map_robot_data_ = false;
 } // TODO 相机点云定位融合单目定位
 
 void DecisionNode::pubRadarCmd()
 {
+    // 1. 发送0x0121雷达指令数据（保持原有逻辑）
     if (!radar_cmd_queue_.empty()) {
         auto cmd = radar_cmd_queue_.front();
         radar_cmd_queue_.pop();
         radar_cmd_pub_->publish(cmd);
+    }
+    // 2. 发送0x0301统一交互数据指令(0x0121/0x0210/0x0211/0x0212)
+    //    优先级已在pushInteractiveData中通过push_front/push_back保证
+    else if (!interactive_data_queue_.empty()) {
+        auto cmd = interactive_data_queue_.front();
+        interactive_data_queue_.pop_front();
+        interactive_data_pub_->publish(cmd);
     }
 }
 
@@ -160,11 +177,27 @@ void DecisionNode::pushRadarCmd(int times, uint8_t password_cmd ,std::string pas
         radar_cmd.password_cmd = password_cmd;
         for (int i = 0; i < 6; ++i) radar_cmd.password[i] = password[i];
         radar_cmd_queue_.push(radar_cmd);
+        // 每个RadarCmd对应一个0x0121发送指令，由统一队列调度发送
+        pushInteractiveData(0x0121, 0x8080);
     }
     std::cout << "Push RadarCmd: radar_cmd=" << static_cast<int>(radar_cmd_cnt_)
               << ", password_cmd=" << static_cast<int>(password_cmd)
               << ", password=" << password
               << std::endl;
+}
+
+void DecisionNode::pushInteractiveData(uint16_t child_cmd, uint16_t receiver_id)
+{
+    radar_msgs::msg::InteractiveDataCmd cmd;
+    cmd.child_cmd = child_cmd;
+    cmd.receiver_id = receiver_id;
+
+    // 0x0121 最高优先级 — 插入队首，优先于所有其他子编码发送
+    if (child_cmd == 0x0121) {
+        interactive_data_queue_.push_front(cmd);
+    } else {
+        interactive_data_queue_.push_back(cmd);
+    }
 }
 
 void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPtr &msg)
@@ -303,6 +336,8 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
         memcpy(&map_robot_data_pc_ref_.opponent_hero_position_x, em_opponent, sizeof(em_opponent));
     }
 
+    has_map_robot_data_ = true;
+
     // 仅在没有信息波位置时(超过500ms未收到)发送雷达定位结果(source=0, 单位: cm)
     if ((this->now() - last_em_wave_position_time_).seconds() > 0.5) {
         radar_msgs::msg::RadarSentryPositionCmd radar_pos_cmd;
@@ -320,6 +355,9 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
         radar_pos_cmd.sentry_x = map_robot_data_pc_ref_.opponent_sentry_position_x;
         radar_pos_cmd.sentry_y = map_robot_data_pc_ref_.opponent_sentry_position_y;
         radar_sentry_position_cmd_pub_->publish(radar_pos_cmd);
+        // 推送0x0211发送指令到统一交互数据队列
+        uint16_t sentry_id = (robot_id_ >= 100) ? BLUE_SENTRY : RED_SENTRY;
+        pushInteractiveData(0x0211, sentry_id);
     }
 }
 
@@ -336,51 +374,27 @@ void DecisionNode::dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
     if (msg->data == 1) { // 接收到敌方飞镖警告
         RCLCPP_INFO(this->get_logger(), "Received enemy dart warning");
         pushCustomInfo(DART_WARNING);
+        // 推送0x0210飞镖警告发送指令到统一交互数据队列（发送给所有己方机器人）
+        int base = (robot_id_ >= 100) ? 101 : 1;
+        for (int i = base; i < base + 7; ++i) {
+            if (i == base + 4) continue; // skip inf5
+            pushInteractiveData(0x0210, i);
+        }
     }
 }
 
 void DecisionNode::robotBuffCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A05RobotBuff::ConstPtr &msg)
 {
-    // 将0x0A05 buff数据广播给己方全部机器人
-    radar_msgs::msg::RadarAllyBuffCmd ally_buff_cmd;
-    ally_buff_cmd.hero_heal = msg->hero_heal;
-    ally_buff_cmd.hero_cool = msg->hero_cool;
-    ally_buff_cmd.hero_def = msg->hero_def;
-    ally_buff_cmd.hero_vuln = msg->hero_vuln;
-    ally_buff_cmd.hero_atk = msg->hero_atk;
-    ally_buff_cmd.engineer_heal = msg->engineer_heal;
-    ally_buff_cmd.engineer_cool = msg->engineer_cool;
-    ally_buff_cmd.engineer_def = msg->engineer_def;
-    ally_buff_cmd.engineer_vuln = msg->engineer_vuln;
-    ally_buff_cmd.engineer_atk = msg->engineer_atk;
-    ally_buff_cmd.infantry3_heal = msg->infantry3_heal;
-    ally_buff_cmd.infantry3_cool = msg->infantry3_cool;
-    ally_buff_cmd.infantry3_def = msg->infantry3_def;
-    ally_buff_cmd.infantry3_vuln = msg->infantry3_vuln;
-    ally_buff_cmd.infantry3_atk = msg->infantry3_atk;
-    ally_buff_cmd.infantry4_heal = msg->infantry4_heal;
-    ally_buff_cmd.infantry4_cool = msg->infantry4_cool;
-    ally_buff_cmd.infantry4_def = msg->infantry4_def;
-    ally_buff_cmd.infantry4_vuln = msg->infantry4_vuln;
-    ally_buff_cmd.infantry4_atk = msg->infantry4_atk;
-    ally_buff_cmd.sentry_heal = msg->sentry_heal;
-    ally_buff_cmd.sentry_cool = msg->sentry_cool;
-    ally_buff_cmd.sentry_def = msg->sentry_def;
-    ally_buff_cmd.sentry_vuln = msg->sentry_vuln;
-    ally_buff_cmd.sentry_atk = msg->sentry_atk;
-    ally_buff_cmd.sentry_posture = msg->sentry_posture;
-    ally_buff_cmd.hero_status = msg->hero_status;
-    ally_buff_cmd.engineer_status = msg->engineer_status;
-    ally_buff_cmd.infantry3_status = msg->infantry3_status;
-    ally_buff_cmd.infantry4_status = msg->infantry4_status;
-    ally_buff_cmd.sentry_status = msg->sentry_status;
-    radar_ally_buff_cmd_pub_->publish(ally_buff_cmd);
+    // 缓存0x0A05数据，等待1Hz定时器统一发布
+    latest_buff_data_ = *msg;
+    has_buff_data_ = true;
 }
 
 void DecisionNode::robotPositionCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A01RobotPosition::ConstPtr &msg)
 {
     last_em_wave_position_time_ = this->now();
     has_em_wave_opponent_position_ = true;
+    has_map_robot_data_ = true;
 
     // 用信息波位置(cm)替换对手机器人位置到 map_robot_data
     map_robot_data_pc_ref_.opponent_hero_position_x = static_cast<uint16_t>(msg->hero_x);
@@ -412,37 +426,118 @@ void DecisionNode::robotPositionCallback(const radar_parse_em_wave::msg::RadarPa
     sentry_pos_cmd.sentry_x = msg->sentry_x;
     sentry_pos_cmd.sentry_y = msg->sentry_y;
     radar_sentry_position_cmd_pub_->publish(sentry_pos_cmd);
+    // 推送0x0211发送指令到统一交互数据队列
+    uint16_t sentry_id = (robot_id_ >= 100) ? BLUE_SENTRY : RED_SENTRY;
+    pushInteractiveData(0x0211, sentry_id);
 }
 
 void DecisionNode::robotHpCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp::ConstPtr &msg)
 {
-    radar_msgs::msg::RadarAllyHpCmd ally_hp_cmd;
-    ally_hp_cmd.hero_hp = msg->hero_hp;
-    ally_hp_cmd.engineer_hp = msg->engineer_hp;
-    ally_hp_cmd.infantry3_hp = msg->infantry3_hp;
-    ally_hp_cmd.infantry4_hp = msg->infantry4_hp;
-    ally_hp_cmd.sentry_hp = msg->sentry_hp;
-    radar_ally_hp_cmd_pub_->publish(ally_hp_cmd);
+    // 缓存0x0A02数据，等待1Hz定时器统一发布
+    latest_hp_data_ = *msg;
+    has_hp_data_ = true;
 }
 
 void DecisionNode::robotAmmoCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo::ConstPtr &msg)
 {
-    radar_msgs::msg::RadarAllyAmmoCmd ally_ammo_cmd;
-    ally_ammo_cmd.hero_ammo = msg->hero_ammo;
-    ally_ammo_cmd.infantry3_ammo = msg->infantry3_ammo;
-    ally_ammo_cmd.infantry4_ammo = msg->infantry4_ammo;
-    ally_ammo_cmd.aerial_ammo = msg->aerial_ammo;
-    ally_ammo_cmd.sentry_ammo = msg->sentry_ammo;
-    radar_ally_ammo_cmd_pub_->publish(ally_ammo_cmd);
+    // 缓存0x0A03数据，等待1Hz定时器统一发布
+    latest_ammo_data_ = *msg;
+    has_ammo_data_ = true;
 }
 
 void DecisionNode::fieldStatusCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus::ConstPtr &msg)
 {
-    radar_msgs::msg::RadarAllyFieldCmd ally_field_cmd;
-    ally_field_cmd.remain_coins = msg->remain_coins;
-    ally_field_cmd.total_coins = msg->total_coins;
-    ally_field_cmd.status_flags = msg->status_flags;
-    radar_ally_field_cmd_pub_->publish(ally_field_cmd);
+    // 缓存0x0A04数据，等待1Hz定时器统一发布
+    latest_field_data_ = *msg;
+    has_field_data_ = true;
+}
+
+void DecisionNode::pubRadarAllyCombinedData()
+{
+    radar_msgs::msg::RadarAllyCombinedData combined_data;
+
+    // 取最新缓存的0x0A02 HP数据
+    if (has_hp_data_) {
+        combined_data.hero_hp = latest_hp_data_.hero_hp;
+        combined_data.engineer_hp = latest_hp_data_.engineer_hp;
+        combined_data.infantry3_hp = latest_hp_data_.infantry3_hp;
+        combined_data.infantry4_hp = latest_hp_data_.infantry4_hp;
+        combined_data.sentry_hp = latest_hp_data_.sentry_hp;
+    }
+
+    // 取最新缓存的0x0A03 Ammo数据
+    if (has_ammo_data_) {
+        combined_data.hero_ammo = latest_ammo_data_.hero_ammo;
+        combined_data.infantry3_ammo = latest_ammo_data_.infantry3_ammo;
+        combined_data.infantry4_ammo = latest_ammo_data_.infantry4_ammo;
+        combined_data.aerial_ammo = latest_ammo_data_.aerial_ammo;
+        combined_data.sentry_ammo = latest_ammo_data_.sentry_ammo;
+    }
+
+    // 取最新缓存的0x0A04 Field数据
+    if (has_field_data_) {
+        combined_data.remain_coins = latest_field_data_.remain_coins;
+        combined_data.total_coins = latest_field_data_.total_coins;
+        combined_data.status_flags = latest_field_data_.status_flags;
+    }
+
+    // 取最新缓存的0x0A05 Buff数据
+    if (has_buff_data_) {
+        combined_data.hero_heal = latest_buff_data_.hero_heal;
+        combined_data.hero_cool = latest_buff_data_.hero_cool;
+        combined_data.hero_def = latest_buff_data_.hero_def;
+        combined_data.hero_vuln = latest_buff_data_.hero_vuln;
+        combined_data.hero_atk = latest_buff_data_.hero_atk;
+        combined_data.engineer_heal = latest_buff_data_.engineer_heal;
+        combined_data.engineer_cool = latest_buff_data_.engineer_cool;
+        combined_data.engineer_def = latest_buff_data_.engineer_def;
+        combined_data.engineer_vuln = latest_buff_data_.engineer_vuln;
+        combined_data.engineer_atk = latest_buff_data_.engineer_atk;
+        combined_data.infantry3_heal = latest_buff_data_.infantry3_heal;
+        combined_data.infantry3_cool = latest_buff_data_.infantry3_cool;
+        combined_data.infantry3_def = latest_buff_data_.infantry3_def;
+        combined_data.infantry3_vuln = latest_buff_data_.infantry3_vuln;
+        combined_data.infantry3_atk = latest_buff_data_.infantry3_atk;
+        combined_data.infantry4_heal = latest_buff_data_.infantry4_heal;
+        combined_data.infantry4_cool = latest_buff_data_.infantry4_cool;
+        combined_data.infantry4_def = latest_buff_data_.infantry4_def;
+        combined_data.infantry4_vuln = latest_buff_data_.infantry4_vuln;
+        combined_data.infantry4_atk = latest_buff_data_.infantry4_atk;
+        combined_data.sentry_heal = latest_buff_data_.sentry_heal;
+        combined_data.sentry_cool = latest_buff_data_.sentry_cool;
+        combined_data.sentry_def = latest_buff_data_.sentry_def;
+        combined_data.sentry_vuln = latest_buff_data_.sentry_vuln;
+        combined_data.sentry_atk = latest_buff_data_.sentry_atk;
+        combined_data.sentry_posture = latest_buff_data_.sentry_posture;
+        combined_data.hero_status = latest_buff_data_.hero_status;
+        combined_data.engineer_status = latest_buff_data_.engineer_status;
+        combined_data.infantry3_status = latest_buff_data_.infantry3_status;
+        combined_data.infantry4_status = latest_buff_data_.infantry4_status;
+        combined_data.sentry_status = latest_buff_data_.sentry_status;
+    }
+
+    // 检查是否有任何新数据到达，若全无则跳过发布
+    if (!has_hp_data_ && !has_ammo_data_ && !has_field_data_ && !has_buff_data_) {
+        return;
+    }
+
+    radar_ally_combined_pub_->publish(combined_data);
+    // 推送0x0212发送指令到统一交互数据队列（发送给所有己方机器人）
+    int base = (robot_id_ >= 100) ? 101 : 1;
+    for (int i = base; i < base + 7; ++i) {
+        if (i == base + 4) continue; // skip inf5
+        pushInteractiveData(0x0212, i);
+    }
+
+    // 发布后清零缓存，等待下一轮数据到达
+    latest_hp_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp();
+    latest_ammo_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo();
+    latest_field_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus();
+    latest_buff_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A05RobotBuff();
+    has_hp_data_ = false;
+    has_ammo_data_ = false;
+    has_field_data_ = false;
+    has_buff_data_ = false;
 }
 
 int main(int argc, char **argv)

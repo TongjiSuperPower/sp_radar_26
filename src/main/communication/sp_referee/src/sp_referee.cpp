@@ -22,7 +22,7 @@ namespace sp_referee
         {
             // RCLCPP_ERROR(logger_, "Cannot open referee port");
         }
-        
+
         // XmlRpc::XmlRpcValue xml_rpc_value;
         // nh_.getParam("read", xml_rpc_value);
 
@@ -53,16 +53,12 @@ namespace sp_referee
             "/radar_sentry_position_cmd", 10, std::bind(&Referee::radarSentryPositionCmdCallback, this, std::placeholders::_1));
         radar_enemy_dart_warning_sub_ = this->create_subscription<std_msgs::msg::Int8>(
             "/dart_gate_status", 10, std::bind(&Referee::radarEnemyDartWarningCallback, this, std::placeholders::_1));
-        radar_ally_hp_cmd_sub_ = this->create_subscription<radar_msgs::msg::RadarAllyHpCmd>(
-            "/radar_ally_hp_cmd", 10, std::bind(&Referee::radarAllyHpCmdCallback, this, std::placeholders::_1));
-        radar_ally_ammo_cmd_sub_ = this->create_subscription<radar_msgs::msg::RadarAllyAmmoCmd>(
-            "/radar_ally_ammo_cmd", 10, std::bind(&Referee::radarAllyAmmoCmdCallback, this, std::placeholders::_1));
-        radar_ally_field_cmd_sub_ = this->create_subscription<radar_msgs::msg::RadarAllyFieldCmd>(
-            "/radar_ally_field_cmd", 10, std::bind(&Referee::radarAllyFieldCmdCallback, this, std::placeholders::_1));
-        radar_ally_buff_cmd_sub_ = this->create_subscription<radar_msgs::msg::RadarAllyBuffCmd>(
-            "/radar_ally_buff_cmd", 10, std::bind(&Referee::radarAllyBuffCmdCallback, this, std::placeholders::_1));
-        
-        
+        radar_ally_combined_sub_ = this->create_subscription<radar_msgs::msg::RadarAllyCombinedData>(
+            "/radar_ally_combined_data", 10, std::bind(&Referee::radarAllyCombinedDataCallback, this, std::placeholders::_1));
+        // 接收decision统一队列的发送指令，触发实际串口写入
+        interactive_data_cmd_sub_ = this->create_subscription<radar_msgs::msg::InteractiveDataCmd>(
+            "/interactive_data_cmd", 10, std::bind(&Referee::interactiveDataCmdCallback, this, std::placeholders::_1));
+
         RCLCPP_INFO(this->get_logger(), "Referee node has started");
 
         return true;
@@ -98,7 +94,7 @@ namespace sp_referee
     void Referee::radarCmdCallback(const radar_msgs::msg::RadarCmd::ConstPtr &msg)
     {
         radar_cmd_ref_ = *msg;
-        write(0x0301, 0x0121, 0x8080);
+        // 只缓存数据，实际发送由 interactiveDataCmdCallback 触发
     }
 
     void Referee::mapRobotDataCallback(const radar_msgs::msg::MapRobotData::ConstPtr &msg)
@@ -116,59 +112,24 @@ namespace sp_referee
     void Referee::radarSentryPositionCmdCallback(const radar_msgs::msg::RadarSentryPositionCmd::ConstPtr &msg)
     {
         radar_sentry_position_cmd_ref_ = *msg;
-        uint16_t receiver_id = (robot_info_.robot_id_ >= 100) ? sp_referee::BLUE_SENTRY : sp_referee::RED_SENTRY;
-        write(0x0301, 0x0211, receiver_id);
+        // 只缓存数据，实际发送由 interactiveDataCmdCallback 触发
     }
 
     void Referee::radarEnemyDartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
     {
         radar_enemy_dart_warning_ref_ = *msg;
-        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
-        for (int i = base; i < base + 7; ++i) {
-            if (i == base + 4) continue; // skip inf5
-            write(0x0301, 0x0210, i);
-        }
+        // 只缓存数据，实际发送由 interactiveDataCmdCallback 触发
     }
 
-    void Referee::radarAllyHpCmdCallback(const radar_msgs::msg::RadarAllyHpCmd::ConstPtr &msg)
+    void Referee::radarAllyCombinedDataCallback(const radar_msgs::msg::RadarAllyCombinedData::ConstPtr &msg)
     {
-        radar_ally_hp_cmd_ref_ = *msg;
-        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
-        for (int i = base; i < base + 7; ++i) {
-            if (i == base + 4) continue; // skip inf5
-            write(0x0301, 0x0212, i);
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        }
+        radar_ally_combined_ref_ = *msg;
+        // 只缓存数据，实际发送由 interactiveDataCmdCallback 触发
     }
 
-    void Referee::radarAllyAmmoCmdCallback(const radar_msgs::msg::RadarAllyAmmoCmd::ConstPtr &msg)
+    void Referee::interactiveDataCmdCallback(const radar_msgs::msg::InteractiveDataCmd::ConstPtr &msg)
     {
-        radar_ally_ammo_cmd_ref_ = *msg;
-        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
-        for (int i = base; i < base + 7; ++i) {
-            if (i == base + 4) continue; // skip inf5
-            write(0x0301, 0x0213, i);
-        }
-    }
-
-    void Referee::radarAllyFieldCmdCallback(const radar_msgs::msg::RadarAllyFieldCmd::ConstPtr &msg)
-    {
-        radar_ally_field_cmd_ref_ = *msg;
-        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
-        for (int i = base; i < base + 7; ++i) {
-            if (i == base + 4) continue; // skip inf5
-            write(0x0301, 0x0214, i);
-        }
-    }
-
-    void Referee::radarAllyBuffCmdCallback(const radar_msgs::msg::RadarAllyBuffCmd::ConstPtr &msg)
-    {
-        radar_ally_buff_cmd_ref_ = *msg;
-        int base = (robot_info_.robot_id_ >= 100) ? 101 : 1;
-        for (int i = base; i < base + 7; ++i) {
-            if (i == base + 4) continue; // skip inf5
-            write(0x0301, 0x0215, i);
-        }
+        write(sp_referee::ROBOT_INTERACTIVE_DATA_CMD, msg->child_cmd, msg->receiver_id);
     }
 
 } // namespace sp_referee

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstdint>
 #include <queue>
+#include <deque>
 
 #include <yaml-cpp/yaml.h>
 
@@ -23,10 +24,8 @@
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a05_robot_buff.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a01_robot_position.hpp"
 #include "radar_msgs/msg/radar_sentry_position_cmd.hpp"
-#include "radar_msgs/msg/radar_ally_hp_cmd.hpp"
-#include "radar_msgs/msg/radar_ally_ammo_cmd.hpp"
-#include "radar_msgs/msg/radar_ally_field_cmd.hpp"
-#include "radar_msgs/msg/radar_ally_buff_cmd.hpp"
+#include "radar_msgs/msg/radar_ally_combined_data.hpp"
+#include "radar_msgs/msg/interactive_data_cmd.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a02_robot_hp.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a03_robot_ammo.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a04_field_status.hpp"
@@ -145,6 +144,7 @@ private:
     std::string robot_color_;
     rclcpp::Time last_em_wave_position_time_;
     bool has_em_wave_opponent_position_;
+    bool has_map_robot_data_ = false;
 
     uint8_t radar_info_chance_;
     bool radar_info_istriggered_;
@@ -156,10 +156,8 @@ private:
     rclcpp::Publisher<radar_msgs::msg::CustomInfo>::SharedPtr custom_info_pub_;
     rclcpp::Publisher<radar_parse_em_wave::msg::RadarParseEmWaveDemodConfig>::SharedPtr radar_demod_config_pub_;
     rclcpp::Publisher<radar_msgs::msg::RadarSentryPositionCmd>::SharedPtr radar_sentry_position_cmd_pub_;
-    rclcpp::Publisher<radar_msgs::msg::RadarAllyHpCmd>::SharedPtr radar_ally_hp_cmd_pub_;
-    rclcpp::Publisher<radar_msgs::msg::RadarAllyAmmoCmd>::SharedPtr radar_ally_ammo_cmd_pub_;
-    rclcpp::Publisher<radar_msgs::msg::RadarAllyFieldCmd>::SharedPtr radar_ally_field_cmd_pub_;
-    rclcpp::Publisher<radar_msgs::msg::RadarAllyBuffCmd>::SharedPtr radar_ally_buff_cmd_pub_;
+    rclcpp::Publisher<radar_msgs::msg::RadarAllyCombinedData>::SharedPtr radar_ally_combined_pub_;
+    rclcpp::Publisher<radar_msgs::msg::InteractiveDataCmd>::SharedPtr interactive_data_pub_;
     
     rclcpp::Subscription<radar_msgs::msg::GameStatus>::SharedPtr game_status_sub_;
     rclcpp::Subscription<radar_msgs::msg::GameRobotHP>::SharedPtr game_robot_hp_sub_;
@@ -186,6 +184,16 @@ private:
     // radar_msgs::msg::MapRobotData map_robot_data_mono_ref_;
     std::string secret_key_;
 
+    // 缓存0x0A02~0x0A05的最新数据
+    radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp latest_hp_data_;
+    radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo latest_ammo_data_;
+    radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus latest_field_data_;
+    radar_parse_em_wave::msg::RadarParseEmWave0A05RobotBuff latest_buff_data_;
+    bool has_hp_data_ = false;
+    bool has_ammo_data_ = false;
+    bool has_field_data_ = false;
+    bool has_buff_data_ = false;
+
     TrackerManager tracker_manager_;
     std::string enemy_;
     tools::Timer timer_;
@@ -193,9 +201,12 @@ private:
     rclcpp::TimerBase::SharedPtr map_robot_data_pub_timer_;
     rclcpp::TimerBase::SharedPtr radar_cmd_pub_timer_;
     rclcpp::TimerBase::SharedPtr custom_info_pub_timer_;
+    rclcpp::TimerBase::SharedPtr radar_ally_combined_pub_timer_;
 
     std::queue<radar_msgs::msg::CustomInfo> custom_info_queue_;
     std::queue<radar_msgs::msg::RadarCmd> radar_cmd_queue_;
+    // 0x0301统一交互数据队列，push_front保证0x0121最优先发送
+    std::deque<radar_msgs::msg::InteractiveDataCmd> interactive_data_queue_;
 
     void gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPtr &msg);
     void gameRobotHpCallback(const radar_msgs::msg::GameRobotHP::ConstPtr &msg);
@@ -213,10 +224,12 @@ private:
 
     void pubMapRobotData();
     void pubCustomInfo();
-    void pubRadarCmd();    
+    void pubRadarCmd();
+    void pubRadarAllyCombinedData();
 
     void pushCustomInfo(int custom_info_id);
     void pushRadarCmd(int times, uint8_t password_cmd ,std::string password);    // 发布双倍易伤，参数：次数
+    void pushInteractiveData(uint16_t child_cmd, uint16_t receiver_id);          // 向统一交互数据队列推入发送指令
 };
 
 #endif

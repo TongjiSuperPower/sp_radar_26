@@ -35,10 +35,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/CarsAndDrones.msg"
 
   "msg/RadarSentryPositionCmd.msg"
-  "msg/RadarAllyHpCmd.msg"
-  "msg/RadarAllyAmmoCmd.msg"
-  "msg/RadarAllyFieldCmd.msg"
-  "msg/RadarAllyBuffCmd.msg"
+  "msg/RadarAllyCombinedData.msg"
+  "msg/InteractiveDataCmd.msg"
 
   DEPENDENCIES std_msgs sensor_msgs
 )

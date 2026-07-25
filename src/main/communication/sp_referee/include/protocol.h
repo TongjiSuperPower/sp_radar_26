@@ -53,10 +53,7 @@ namespace sp_referee
         RADAR_ENEMY_HERO_POSITION_CMD = 0x0209,
         RADAR_ENEMY_DART_WARNING_CMD = 0x0210,
         RADAR_SENTRY_POSITION_CMD = 0x0211,
-        RADAR_ALLY_HP_CMD = 0x0212,
-        RADAR_ALLY_AMMO_CMD = 0x0213,
-        RADAR_ALLY_FIELD_CMD = 0x0214,
-        RADAR_ALLY_BUFF_CMD = 0x0215,
+        RADAR_ALLY_COMBINED_CMD = 0x0212, // 合并0x0A02~0x0A05全部数据
     } RobotInteractiveEDataCmdId;
 
     enum

@@ -1,4 +1,24 @@
-# 0x0301->0x0216 雷达向己方全部机器人广播0x0A05的Buff数据
+# 合并0x0A02~0x0A05的接收，以1Hz发给sp_referee的统一话题
+# 0x0A02: HP数据
+uint16 hero_hp
+uint16 engineer_hp
+uint16 infantry3_hp
+uint16 infantry4_hp
+uint16 sentry_hp
+
+# 0x0A03: 弹药数据
+uint16 hero_ammo
+uint16 infantry3_ammo
+uint16 infantry4_ammo
+uint16 aerial_ammo
+uint16 sentry_ammo
+
+# 0x0A04: 场地状态数据
+uint16 remain_coins
+uint16 total_coins
+uint32 status_flags
+
+# 0x0A05: Buff数据
 uint8 hero_heal
 uint16 hero_cool
 uint8 hero_def
