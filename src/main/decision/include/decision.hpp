@@ -25,7 +25,8 @@
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a01_robot_position.hpp"
 #include "radar_msgs/msg/radar_sentry_position_cmd.hpp"
 #include "radar_msgs/msg/radar_ally_combined_data.hpp"
-#include "radar_msgs/msg/interactive_data_cmd.hpp"
+#include "radar_msgs/msg/combined_data.hpp"
+#include "radar_msgs/msg/dart_warning_cmd.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a02_robot_hp.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a03_robot_ammo.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a04_field_status.hpp"
@@ -156,8 +157,8 @@ private:
     rclcpp::Publisher<radar_msgs::msg::CustomInfo>::SharedPtr custom_info_pub_;
     rclcpp::Publisher<radar_parse_em_wave::msg::RadarParseEmWaveDemodConfig>::SharedPtr radar_demod_config_pub_;
     rclcpp::Publisher<radar_msgs::msg::RadarSentryPositionCmd>::SharedPtr radar_sentry_position_cmd_pub_;
-    rclcpp::Publisher<radar_msgs::msg::RadarAllyCombinedData>::SharedPtr radar_ally_combined_pub_;
-    rclcpp::Publisher<radar_msgs::msg::InteractiveDataCmd>::SharedPtr interactive_data_pub_;
+    rclcpp::Publisher<radar_msgs::msg::CombinedData>::SharedPtr combined_data_pub_;
+    rclcpp::Publisher<radar_msgs::msg::DartWarningCmd>::SharedPtr dart_warning_cmd_pub_;
     
     rclcpp::Subscription<radar_msgs::msg::GameStatus>::SharedPtr game_status_sub_;
     rclcpp::Subscription<radar_msgs::msg::GameRobotHP>::SharedPtr game_robot_hp_sub_;
@@ -201,13 +202,13 @@ private:
     rclcpp::TimerBase::SharedPtr map_robot_data_pub_timer_;
     rclcpp::TimerBase::SharedPtr radar_cmd_pub_timer_;
     rclcpp::TimerBase::SharedPtr custom_info_pub_timer_;
-    rclcpp::TimerBase::SharedPtr radar_ally_combined_pub_timer_;
-    rclcpp::TimerBase::SharedPtr radar_ally_combined_data_pub_timer_;
+    rclcpp::TimerBase::SharedPtr combined_data_build_timer_;
     rclcpp::TimerBase::SharedPtr radar_ally_combined_clear_timer_;
     std::queue<radar_msgs::msg::CustomInfo> custom_info_queue_;
     std::queue<radar_msgs::msg::RadarCmd> radar_cmd_queue_;
-    // 0x0301统一交互数据队列，push_front保证0x0121最优先发送
-    std::deque<radar_msgs::msg::InteractiveDataCmd> interactive_data_queue_;
+    std::deque<radar_msgs::msg::CombinedData> combined_data_queue_;
+    std::deque<radar_msgs::msg::RadarSentryPositionCmd> sentry_position_queue_;
+    std::deque<radar_msgs::msg::DartWarningCmd> dart_warning_queue_;
 
     void gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPtr &msg);
     void gameRobotHpCallback(const radar_msgs::msg::GameRobotHP::ConstPtr &msg);
@@ -226,13 +227,11 @@ private:
     void pubMapRobotData();
     void pubCustomInfo();
     void pubRadarCmd();
-    void pubRadarAllyCombinedData();
-    void pubRadarAllyCombinedInteractiveData();
+    void buildCombinedData();
     void clearRadarAllyCombinedData();
 
     void pushCustomInfo(int custom_info_id);
     void pushRadarCmd(int times, uint8_t password_cmd ,std::string password);    // 发布双倍易伤，参数：次数
-    void pushInteractiveData(uint16_t child_cmd, uint16_t receiver_id);          // 向统一交互数据队列推入发送指令
 };
 
 #endif

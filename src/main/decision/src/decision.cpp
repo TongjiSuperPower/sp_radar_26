@@ -18,8 +18,8 @@ DecisionNode::DecisionNode() : Node("decision_node")
     custom_info_pub_ = this->create_publisher<radar_msgs::msg::CustomInfo>("/custom_info", 1);
     radar_demod_config_pub_ = this->create_publisher<radar_parse_em_wave::msg::RadarParseEmWaveDemodConfig>("/rmuc/demod_config", 1);
     radar_sentry_position_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarSentryPositionCmd>("/radar_sentry_position_cmd", 1);
-    radar_ally_combined_pub_ = this->create_publisher<radar_msgs::msg::RadarAllyCombinedData>("/radar_ally_combined_data", 1);
-    interactive_data_pub_ = this->create_publisher<radar_msgs::msg::InteractiveDataCmd>("/interactive_data_cmd", 1);
+    combined_data_pub_ = this->create_publisher<radar_msgs::msg::CombinedData>("/combined_data", 10);
+    dart_warning_cmd_pub_ = this->create_publisher<radar_msgs::msg::DartWarningCmd>("/dart_warning_cmd", 1);
 
     map_robot_data_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(200), std::bind(&DecisionNode::pubMapRobotData, this));   // 5Hz
@@ -27,10 +27,8 @@ DecisionNode::DecisionNode() : Node("decision_node")
         std::chrono::milliseconds(35), std::bind(&DecisionNode::pubRadarCmd, this));    // 30Hz
     custom_info_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(350), std::bind(&DecisionNode::pubCustomInfo, this)); // 3Hz
-    radar_ally_combined_pub_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(1000), std::bind(&DecisionNode::pubRadarAllyCombinedInteractiveData, this)); // 3Hz
-    radar_ally_combined_data_pub_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(100), std::bind(&DecisionNode::pubRadarAllyCombinedData, this)); // 10Hz
+    combined_data_build_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(1000), std::bind(&DecisionNode::buildCombinedData, this)); // 3Hz
     radar_ally_combined_clear_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(500), std::bind(&DecisionNode::clearRadarAllyCombinedData, this)); // 2Hz
     game_status_sub_ = this->create_subscription<radar_msgs::msg::GameStatus>(
@@ -90,18 +88,29 @@ void DecisionNode::pubMapRobotData()
 
 void DecisionNode::pubRadarCmd()
 {
-    // 1. 发送0x0121雷达指令数据（保持原有逻辑）
+    // Priority 1: 0x0121 radar commands
     if (!radar_cmd_queue_.empty()) {
         auto cmd = radar_cmd_queue_.front();
         radar_cmd_queue_.pop();
         radar_cmd_pub_->publish(cmd);
     }
-    // 2. 发送0x0301统一交互数据指令(0x0121/0x0210/0x0211/0x0212)
-    //    优先级已在pushInteractiveData中通过push_front/push_back保证
-    else if (!interactive_data_queue_.empty()) {
-        auto cmd = interactive_data_queue_.front();
-        interactive_data_queue_.pop_front();
-        interactive_data_pub_->publish(cmd);
+    // Priority 2: 0x0211 sentry position (只发给哨兵7号)
+    else if (!sentry_position_queue_.empty()) {
+        auto cmd = sentry_position_queue_.front();
+        sentry_position_queue_.pop_front();
+        radar_sentry_position_cmd_pub_->publish(cmd);
+    }
+    // Priority 3: 0x0210 dart warning (单独话题)
+    else if (!dart_warning_queue_.empty()) {
+        auto cmd = dart_warning_queue_.front();
+        dart_warning_queue_.pop_front();
+        dart_warning_cmd_pub_->publish(cmd);
+    }
+    // Priority 4: 0x0212 combined data (data + routing together)
+    else if (!combined_data_queue_.empty()) {
+        auto cmd = combined_data_queue_.front();
+        combined_data_queue_.pop_front();
+        combined_data_pub_->publish(cmd);
     }
 }
 
@@ -180,27 +189,11 @@ void DecisionNode::pushRadarCmd(int times, uint8_t password_cmd ,std::string pas
         radar_cmd.password_cmd = password_cmd;
         for (int i = 0; i < 6; ++i) radar_cmd.password[i] = password[i];
         radar_cmd_queue_.push(radar_cmd);
-        // 每个RadarCmd对应一个0x0121发送指令，由统一队列调度发送
-        pushInteractiveData(0x0121, 0x8080);
     }
     std::cout << "Push RadarCmd: radar_cmd=" << static_cast<int>(radar_cmd_cnt_)
               << ", password_cmd=" << static_cast<int>(password_cmd)
               << ", password=" << password
               << std::endl;
-}
-
-void DecisionNode::pushInteractiveData(uint16_t child_cmd, uint16_t receiver_id)
-{
-    radar_msgs::msg::InteractiveDataCmd cmd;
-    cmd.child_cmd = child_cmd;
-    cmd.receiver_id = receiver_id;
-
-    // 0x0121 最高优先级 — 插入队首，优先于所有其他子编码发送
-    if (child_cmd == 0x0121) {
-        interactive_data_queue_.push_front(cmd);
-    } else {
-        interactive_data_queue_.push_back(cmd);
-    }
 }
 
 void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPtr &msg)
@@ -357,10 +350,7 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
         radar_pos_cmd.aerial_y = map_robot_data_pc_ref_.opponent_aerial_position_y;
         radar_pos_cmd.sentry_x = map_robot_data_pc_ref_.opponent_sentry_position_x;
         radar_pos_cmd.sentry_y = map_robot_data_pc_ref_.opponent_sentry_position_y;
-        radar_sentry_position_cmd_pub_->publish(radar_pos_cmd);
-        // 推送0x0211发送指令到统一交互数据队列
-        uint16_t sentry_id = (robot_id_ >= 100) ? BLUE_SENTRY : RED_SENTRY;
-        pushInteractiveData(0x0211, sentry_id);
+        sentry_position_queue_.push_back(radar_pos_cmd);
     }
 }
 
@@ -378,11 +368,14 @@ void DecisionNode::dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
     if (msg->data == 1) { // 接收到敌方飞镖警告
         RCLCPP_INFO(this->get_logger(), "Received enemy dart warning");
         pushCustomInfo(DART_WARNING);
-        // 推送0x0210飞镖警告发送指令到统一交互数据队列（发送给所有己方机器人）
+        // 推送0x0210飞镖警告到单独队列（数据+路由合并，共用30Hz带宽）
         int base = (robot_id_ >= 100) ? 101 : 1;
         for (int i = base; i < base + 7; ++i) {
             if (i == base + 4) continue; // skip inf5
-            pushInteractiveData(0x0210, i);
+            radar_msgs::msg::DartWarningCmd cmd;
+            cmd.dart_gate_status = msg->data;
+            cmd.receiver_id = i;
+            dart_warning_queue_.push_back(cmd);
         }
     }
 }
@@ -429,10 +422,7 @@ void DecisionNode::robotPositionCallback(const radar_parse_em_wave::msg::RadarPa
     sentry_pos_cmd.aerial_y = msg->aerial_y;
     sentry_pos_cmd.sentry_x = msg->sentry_x;
     sentry_pos_cmd.sentry_y = msg->sentry_y;
-    radar_sentry_position_cmd_pub_->publish(sentry_pos_cmd);
-    // 推送0x0211发送指令到统一交互数据队列
-    uint16_t sentry_id = (robot_id_ >= 100) ? BLUE_SENTRY : RED_SENTRY;
-    pushInteractiveData(0x0211, sentry_id);
+    sentry_position_queue_.push_back(sentry_pos_cmd);
 }
 
 void DecisionNode::robotHpCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp::ConstPtr &msg)
@@ -456,123 +446,129 @@ void DecisionNode::fieldStatusCallback(const radar_parse_em_wave::msg::RadarPars
     has_field_data_ = true;
 }
 
-void DecisionNode::pubRadarAllyCombinedData()
+void DecisionNode::buildCombinedData()
 {
-    radar_msgs::msg::RadarAllyCombinedData combined_data;
+    radar_msgs::msg::CombinedData base;
+    base.data_cmd_id = 0x0212;
 
     // 全部字段默认填充-1（uint8→0xFF, uint16→0xFFFF, uint32→0xFFFFFFFF），无新数据时发送无效值
 
     // 0x0A02 HP数据 (uint16: 0xFFFF)
-    combined_data.hero_hp = 0xFFFF;
-    combined_data.engineer_hp = 0xFFFF;
-    combined_data.infantry3_hp = 0xFFFF;
-    combined_data.infantry4_hp = 0xFFFF;
-    combined_data.sentry_hp = 0xFFFF;
+    base.hero_hp = 0xFFFF;
+    base.engineer_hp = 0xFFFF;
+    base.infantry3_hp = 0xFFFF;
+    base.infantry4_hp = 0xFFFF;
+    base.sentry_hp = 0xFFFF;
 
     // 0x0A03 Ammo数据 (uint16: 0xFFFF)
-    combined_data.hero_ammo = 0xFFFF;
-    combined_data.infantry3_ammo = 0xFFFF;
-    combined_data.infantry4_ammo = 0xFFFF;
-    combined_data.aerial_ammo = 0xFFFF;
-    combined_data.sentry_ammo = 0xFFFF;
+    base.hero_ammo = 0xFFFF;
+    base.infantry3_ammo = 0xFFFF;
+    base.infantry4_ammo = 0xFFFF;
+    base.aerial_ammo = 0xFFFF;
+    base.sentry_ammo = 0xFFFF;
 
     // 0x0A04 Field数据
-    combined_data.remain_coins = 0xFFFF;
-    combined_data.total_coins = 0xFFFF;
-    combined_data.status_flags = 0xFFFFFFFF;
+    base.remain_coins = 0xFFFF;
+    base.total_coins = 0xFFFF;
+    base.status_flags = 0xFFFFFFFF;
 
     // 0x0A05 Buff数据 (uint8: 0xFF, uint16: 0xFFFF)
-    combined_data.hero_heal = 0xFF;
-    combined_data.hero_cool = 0xFFFF;
-    combined_data.hero_def = 0xFF;
-    combined_data.hero_vuln = 0xFF;
-    combined_data.hero_atk = 0xFFFF;
-    combined_data.engineer_heal = 0xFF;
-    combined_data.engineer_cool = 0xFFFF;
-    combined_data.engineer_def = 0xFF;
-    combined_data.engineer_vuln = 0xFF;
-    combined_data.engineer_atk = 0xFFFF;
-    combined_data.infantry3_heal = 0xFF;
-    combined_data.infantry3_cool = 0xFFFF;
-    combined_data.infantry3_def = 0xFF;
-    combined_data.infantry3_vuln = 0xFF;
-    combined_data.infantry3_atk = 0xFFFF;
-    combined_data.infantry4_heal = 0xFF;
-    combined_data.infantry4_cool = 0xFFFF;
-    combined_data.infantry4_def = 0xFF;
-    combined_data.infantry4_vuln = 0xFF;
-    combined_data.infantry4_atk = 0xFFFF;
-    combined_data.sentry_heal = 0xFF;
-    combined_data.sentry_cool = 0xFFFF;
-    combined_data.sentry_def = 0xFF;
-    combined_data.sentry_vuln = 0xFF;
-    combined_data.sentry_atk = 0xFFFF;
-    combined_data.sentry_posture = 0xFF;
-    combined_data.hero_status = 0xFF;
-    combined_data.engineer_status = 0xFF;
-    combined_data.infantry3_status = 0xFF;
-    combined_data.infantry4_status = 0xFF;
-    combined_data.sentry_status = 0xFF;
+    base.hero_heal = 0xFF;
+    base.hero_cool = 0xFFFF;
+    base.hero_def = 0xFF;
+    base.hero_vuln = 0xFF;
+    base.hero_atk = 0xFFFF;
+    base.engineer_heal = 0xFF;
+    base.engineer_cool = 0xFFFF;
+    base.engineer_def = 0xFF;
+    base.engineer_vuln = 0xFF;
+    base.engineer_atk = 0xFFFF;
+    base.infantry3_heal = 0xFF;
+    base.infantry3_cool = 0xFFFF;
+    base.infantry3_def = 0xFF;
+    base.infantry3_vuln = 0xFF;
+    base.infantry3_atk = 0xFFFF;
+    base.infantry4_heal = 0xFF;
+    base.infantry4_cool = 0xFFFF;
+    base.infantry4_def = 0xFF;
+    base.infantry4_vuln = 0xFF;
+    base.infantry4_atk = 0xFFFF;
+    base.sentry_heal = 0xFF;
+    base.sentry_cool = 0xFFFF;
+    base.sentry_def = 0xFF;
+    base.sentry_vuln = 0xFF;
+    base.sentry_atk = 0xFFFF;
+    base.sentry_posture = 0xFF;
+    base.hero_status = 0xFF;
+    base.engineer_status = 0xFF;
+    base.infantry3_status = 0xFF;
+    base.infantry4_status = 0xFF;
+    base.sentry_status = 0xFF;
 
     // 有新数据时覆盖对应字段
     if (has_hp_data_) {
-        combined_data.hero_hp = latest_hp_data_.hero_hp;
-        combined_data.engineer_hp = latest_hp_data_.engineer_hp;
-        combined_data.infantry3_hp = latest_hp_data_.infantry3_hp;
-        combined_data.infantry4_hp = latest_hp_data_.infantry4_hp;
-        combined_data.sentry_hp = latest_hp_data_.sentry_hp;
+        base.hero_hp = latest_hp_data_.hero_hp;
+        base.engineer_hp = latest_hp_data_.engineer_hp;
+        base.infantry3_hp = latest_hp_data_.infantry3_hp;
+        base.infantry4_hp = latest_hp_data_.infantry4_hp;
+        base.sentry_hp = latest_hp_data_.sentry_hp;
     }
 
     if (has_ammo_data_) {
-        combined_data.hero_ammo = latest_ammo_data_.hero_ammo;
-        combined_data.infantry3_ammo = latest_ammo_data_.infantry3_ammo;
-        combined_data.infantry4_ammo = latest_ammo_data_.infantry4_ammo;
-        combined_data.aerial_ammo = latest_ammo_data_.aerial_ammo;
-        combined_data.sentry_ammo = latest_ammo_data_.sentry_ammo;
+        base.hero_ammo = latest_ammo_data_.hero_ammo;
+        base.infantry3_ammo = latest_ammo_data_.infantry3_ammo;
+        base.infantry4_ammo = latest_ammo_data_.infantry4_ammo;
+        base.aerial_ammo = latest_ammo_data_.aerial_ammo;
+        base.sentry_ammo = latest_ammo_data_.sentry_ammo;
     }
 
     if (has_field_data_) {
-        combined_data.remain_coins = latest_field_data_.remain_coins;
-        combined_data.total_coins = latest_field_data_.total_coins;
-        combined_data.status_flags = latest_field_data_.status_flags;
+        base.remain_coins = latest_field_data_.remain_coins;
+        base.total_coins = latest_field_data_.total_coins;
+        base.status_flags = latest_field_data_.status_flags;
     }
 
     if (has_buff_data_) {
-        combined_data.hero_heal = latest_buff_data_.hero_heal;
-        combined_data.hero_cool = latest_buff_data_.hero_cool;
-        combined_data.hero_def = latest_buff_data_.hero_def;
-        combined_data.hero_vuln = latest_buff_data_.hero_vuln;
-        combined_data.hero_atk = latest_buff_data_.hero_atk;
-        combined_data.engineer_heal = latest_buff_data_.engineer_heal;
-        combined_data.engineer_cool = latest_buff_data_.engineer_cool;
-        combined_data.engineer_def = latest_buff_data_.engineer_def;
-        combined_data.engineer_vuln = latest_buff_data_.engineer_vuln;
-        combined_data.engineer_atk = latest_buff_data_.engineer_atk;
-        combined_data.infantry3_heal = latest_buff_data_.infantry3_heal;
-        combined_data.infantry3_cool = latest_buff_data_.infantry3_cool;
-        combined_data.infantry3_def = latest_buff_data_.infantry3_def;
-        combined_data.infantry3_vuln = latest_buff_data_.infantry3_vuln;
-        combined_data.infantry3_atk = latest_buff_data_.infantry3_atk;
-        combined_data.infantry4_heal = latest_buff_data_.infantry4_heal;
-        combined_data.infantry4_cool = latest_buff_data_.infantry4_cool;
-        combined_data.infantry4_def = latest_buff_data_.infantry4_def;
-        combined_data.infantry4_vuln = latest_buff_data_.infantry4_vuln;
-        combined_data.infantry4_atk = latest_buff_data_.infantry4_atk;
-        combined_data.sentry_heal = latest_buff_data_.sentry_heal;
-        combined_data.sentry_cool = latest_buff_data_.sentry_cool;
-        combined_data.sentry_def = latest_buff_data_.sentry_def;
-        combined_data.sentry_vuln = latest_buff_data_.sentry_vuln;
-        combined_data.sentry_atk = latest_buff_data_.sentry_atk;
-        combined_data.sentry_posture = latest_buff_data_.sentry_posture;
-        combined_data.hero_status = latest_buff_data_.hero_status;
-        combined_data.engineer_status = latest_buff_data_.engineer_status;
-        combined_data.infantry3_status = latest_buff_data_.infantry3_status;
-        combined_data.infantry4_status = latest_buff_data_.infantry4_status;
-        combined_data.sentry_status = latest_buff_data_.sentry_status;
+        base.hero_heal = latest_buff_data_.hero_heal;
+        base.hero_cool = latest_buff_data_.hero_cool;
+        base.hero_def = latest_buff_data_.hero_def;
+        base.hero_vuln = latest_buff_data_.hero_vuln;
+        base.hero_atk = latest_buff_data_.hero_atk;
+        base.engineer_heal = latest_buff_data_.engineer_heal;
+        base.engineer_cool = latest_buff_data_.engineer_cool;
+        base.engineer_def = latest_buff_data_.engineer_def;
+        base.engineer_vuln = latest_buff_data_.engineer_vuln;
+        base.engineer_atk = latest_buff_data_.engineer_atk;
+        base.infantry3_heal = latest_buff_data_.infantry3_heal;
+        base.infantry3_cool = latest_buff_data_.infantry3_cool;
+        base.infantry3_def = latest_buff_data_.infantry3_def;
+        base.infantry3_vuln = latest_buff_data_.infantry3_vuln;
+        base.infantry3_atk = latest_buff_data_.infantry3_atk;
+        base.infantry4_heal = latest_buff_data_.infantry4_heal;
+        base.infantry4_cool = latest_buff_data_.infantry4_cool;
+        base.infantry4_def = latest_buff_data_.infantry4_def;
+        base.infantry4_vuln = latest_buff_data_.infantry4_vuln;
+        base.infantry4_atk = latest_buff_data_.infantry4_atk;
+        base.sentry_heal = latest_buff_data_.sentry_heal;
+        base.sentry_cool = latest_buff_data_.sentry_cool;
+        base.sentry_def = latest_buff_data_.sentry_def;
+        base.sentry_vuln = latest_buff_data_.sentry_vuln;
+        base.sentry_atk = latest_buff_data_.sentry_atk;
+        base.sentry_posture = latest_buff_data_.sentry_posture;
+        base.hero_status = latest_buff_data_.hero_status;
+        base.engineer_status = latest_buff_data_.engineer_status;
+        base.infantry3_status = latest_buff_data_.infantry3_status;
+        base.infantry4_status = latest_buff_data_.infantry4_status;
+        base.sentry_status = latest_buff_data_.sentry_status;
     }
 
-    // 始终发布（无新数据时填充0xFF/0xFFFF/0xFFFFFFFF）
-    radar_ally_combined_pub_->publish(combined_data);
+    // 推送0x0212到combined_data队列（发送给所有己方机器人）
+    int base_id = (robot_id_ >= 100) ? 101 : 1;
+    for (int i = base_id; i < base_id + 7; ++i) {
+        if (i == base_id + 4) continue; // skip inf5
+        base.receiver_id = i;
+        combined_data_queue_.push_back(base);
+    }
 }
 
 void DecisionNode::clearRadarAllyCombinedData()
@@ -586,16 +582,6 @@ void DecisionNode::clearRadarAllyCombinedData()
     has_ammo_data_ = false;
     has_field_data_ = false;
     has_buff_data_ = false;
-}
-
-void DecisionNode::pubRadarAllyCombinedInteractiveData()
-{
-    // 推送0x0212发送指令到统一交互数据队列（发送给所有己方机器人）
-    int base = (robot_id_ >= 100) ? 101 : 1;
-    for (int i = base; i < base + 7; ++i) {
-        if (i == base + 4) continue; // skip inf5
-        pushInteractiveData(0x0212, i);
-    }
 }
 
 int main(int argc, char **argv)

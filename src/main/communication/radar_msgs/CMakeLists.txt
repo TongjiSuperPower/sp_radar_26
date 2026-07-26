@@ -36,6 +36,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
   "msg/RadarSentryPositionCmd.msg"
   "msg/RadarAllyCombinedData.msg"
+  "msg/CombinedData.msg"
+  "msg/DartWarningCmd.msg"
   "msg/InteractiveDataCmd.msg"
 
   DEPENDENCIES std_msgs sensor_msgs

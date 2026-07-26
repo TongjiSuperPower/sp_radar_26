@@ -26,7 +26,8 @@
 #include "radar_msgs/msg/custom_info.hpp"
 #include "radar_msgs/msg/radar_sentry_position_cmd.hpp"
 #include "radar_msgs/msg/radar_ally_combined_data.hpp"
-#include "radar_msgs/msg/interactive_data_cmd.hpp"
+#include "radar_msgs/msg/combined_data.hpp"
+#include "radar_msgs/msg/dart_warning_cmd.hpp"
 #include <std_msgs/msg/int8.hpp>
 
 namespace sp_referee
@@ -66,10 +67,8 @@ namespace sp_referee
             // void mapDataCallback(const sp_referee::MapDataMsgConstPtr &msg);
             void customInfoCallback(const radar_msgs::msg::CustomInfo::ConstPtr &msg);
             void radarSentryPositionCmdCallback(const radar_msgs::msg::RadarSentryPositionCmd::ConstPtr &msg);
-            void radarEnemyDartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg);
-            void radarAllyCombinedDataCallback(const radar_msgs::msg::RadarAllyCombinedData::ConstPtr &msg);
-            // 接收decision统一队列发出的发送指令，触发实际的串口写入
-            void interactiveDataCmdCallback(const radar_msgs::msg::InteractiveDataCmd::ConstPtr &msg);
+            void combinedDataCallback(const radar_msgs::msg::CombinedData::ConstPtr &msg);
+            void dartWarningCmdCallback(const radar_msgs::msg::DartWarningCmd::ConstPtr &msg);
 
             // rclcpp::Logger logger_;
             serial::Serial serial_;
@@ -104,9 +103,8 @@ namespace sp_referee
             rclcpp::Subscription<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_sub_;
             rclcpp::Subscription<radar_msgs::msg::CustomInfo>::SharedPtr custom_info_sub_;
             rclcpp::Subscription<radar_msgs::msg::RadarSentryPositionCmd>::SharedPtr radar_sentry_position_cmd_sub_;
-            rclcpp::Subscription<std_msgs::msg::Int8>::SharedPtr radar_enemy_dart_warning_sub_;
-            rclcpp::Subscription<radar_msgs::msg::RadarAllyCombinedData>::SharedPtr radar_ally_combined_sub_;
-            rclcpp::Subscription<radar_msgs::msg::InteractiveDataCmd>::SharedPtr interactive_data_cmd_sub_;
+            rclcpp::Subscription<radar_msgs::msg::CombinedData>::SharedPtr combined_data_sub_;
+            rclcpp::Subscription<radar_msgs::msg::DartWarningCmd>::SharedPtr dart_warning_cmd_sub_;
 
             // ros::Subscriber manipulator_cmd_sub_;
             // sp_common::ManipulatorCmd manipulator_cmd_;
