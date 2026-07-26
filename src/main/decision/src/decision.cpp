@@ -28,9 +28,11 @@ DecisionNode::DecisionNode() : Node("decision_node")
     custom_info_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(350), std::bind(&DecisionNode::pubCustomInfo, this)); // 3Hz
     radar_ally_combined_pub_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(1000), std::bind(&DecisionNode::pubRadarAllyCombinedInteractiveData, this)); // 1Hz
+        std::chrono::milliseconds(1000), std::bind(&DecisionNode::pubRadarAllyCombinedInteractiveData, this)); // 3Hz
     radar_ally_combined_data_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(100), std::bind(&DecisionNode::pubRadarAllyCombinedData, this)); // 10Hz
+    radar_ally_combined_clear_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(500), std::bind(&DecisionNode::clearRadarAllyCombinedData, this)); // 2Hz
     game_status_sub_ = this->create_subscription<radar_msgs::msg::GameStatus>(
         "/game_status", 10, std::bind(&DecisionNode::gameStatusCallback, this, std::placeholders::_1));
     game_robot_hp_sub_ = this->create_subscription<radar_msgs::msg::GameRobotHP>(
@@ -364,7 +366,8 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
 
 void DecisionNode::secretKeyCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A06InterferenceKey::ConstPtr &msg)
 {
-    if (secret_key_ == msg->key) return; // 已经接收到过secret key了就不再更新了
+    // 干扰波等级达到3级后不再发送密钥，避免10s冷却期内正确密钥被去重导致永远卡住
+    if (radar_info_ref_.encryption_level >= 3) return;
     secret_key_ = msg->key;
     RCLCPP_INFO(this->get_logger(), "Received secret key: %s", secret_key_.c_str());
     pushRadarCmd(radar_cmd_cnt_, 2, secret_key_);
@@ -457,7 +460,61 @@ void DecisionNode::pubRadarAllyCombinedData()
 {
     radar_msgs::msg::RadarAllyCombinedData combined_data;
 
-    // 取最新缓存的0x0A02 HP数据
+    // 全部字段默认填充-1（uint8→0xFF, uint16→0xFFFF, uint32→0xFFFFFFFF），无新数据时发送无效值
+
+    // 0x0A02 HP数据 (uint16: 0xFFFF)
+    combined_data.hero_hp = 0xFFFF;
+    combined_data.engineer_hp = 0xFFFF;
+    combined_data.infantry3_hp = 0xFFFF;
+    combined_data.infantry4_hp = 0xFFFF;
+    combined_data.sentry_hp = 0xFFFF;
+
+    // 0x0A03 Ammo数据 (uint16: 0xFFFF)
+    combined_data.hero_ammo = 0xFFFF;
+    combined_data.infantry3_ammo = 0xFFFF;
+    combined_data.infantry4_ammo = 0xFFFF;
+    combined_data.aerial_ammo = 0xFFFF;
+    combined_data.sentry_ammo = 0xFFFF;
+
+    // 0x0A04 Field数据
+    combined_data.remain_coins = 0xFFFF;
+    combined_data.total_coins = 0xFFFF;
+    combined_data.status_flags = 0xFFFFFFFF;
+
+    // 0x0A05 Buff数据 (uint8: 0xFF, uint16: 0xFFFF)
+    combined_data.hero_heal = 0xFF;
+    combined_data.hero_cool = 0xFFFF;
+    combined_data.hero_def = 0xFF;
+    combined_data.hero_vuln = 0xFF;
+    combined_data.hero_atk = 0xFFFF;
+    combined_data.engineer_heal = 0xFF;
+    combined_data.engineer_cool = 0xFFFF;
+    combined_data.engineer_def = 0xFF;
+    combined_data.engineer_vuln = 0xFF;
+    combined_data.engineer_atk = 0xFFFF;
+    combined_data.infantry3_heal = 0xFF;
+    combined_data.infantry3_cool = 0xFFFF;
+    combined_data.infantry3_def = 0xFF;
+    combined_data.infantry3_vuln = 0xFF;
+    combined_data.infantry3_atk = 0xFFFF;
+    combined_data.infantry4_heal = 0xFF;
+    combined_data.infantry4_cool = 0xFFFF;
+    combined_data.infantry4_def = 0xFF;
+    combined_data.infantry4_vuln = 0xFF;
+    combined_data.infantry4_atk = 0xFFFF;
+    combined_data.sentry_heal = 0xFF;
+    combined_data.sentry_cool = 0xFFFF;
+    combined_data.sentry_def = 0xFF;
+    combined_data.sentry_vuln = 0xFF;
+    combined_data.sentry_atk = 0xFFFF;
+    combined_data.sentry_posture = 0xFF;
+    combined_data.hero_status = 0xFF;
+    combined_data.engineer_status = 0xFF;
+    combined_data.infantry3_status = 0xFF;
+    combined_data.infantry4_status = 0xFF;
+    combined_data.sentry_status = 0xFF;
+
+    // 有新数据时覆盖对应字段
     if (has_hp_data_) {
         combined_data.hero_hp = latest_hp_data_.hero_hp;
         combined_data.engineer_hp = latest_hp_data_.engineer_hp;
@@ -466,7 +523,6 @@ void DecisionNode::pubRadarAllyCombinedData()
         combined_data.sentry_hp = latest_hp_data_.sentry_hp;
     }
 
-    // 取最新缓存的0x0A03 Ammo数据
     if (has_ammo_data_) {
         combined_data.hero_ammo = latest_ammo_data_.hero_ammo;
         combined_data.infantry3_ammo = latest_ammo_data_.infantry3_ammo;
@@ -475,14 +531,12 @@ void DecisionNode::pubRadarAllyCombinedData()
         combined_data.sentry_ammo = latest_ammo_data_.sentry_ammo;
     }
 
-    // 取最新缓存的0x0A04 Field数据
     if (has_field_data_) {
         combined_data.remain_coins = latest_field_data_.remain_coins;
         combined_data.total_coins = latest_field_data_.total_coins;
         combined_data.status_flags = latest_field_data_.status_flags;
     }
 
-    // 取最新缓存的0x0A05 Buff数据
     if (has_buff_data_) {
         combined_data.hero_heal = latest_buff_data_.hero_heal;
         combined_data.hero_cool = latest_buff_data_.hero_cool;
@@ -517,14 +571,13 @@ void DecisionNode::pubRadarAllyCombinedData()
         combined_data.sentry_status = latest_buff_data_.sentry_status;
     }
 
-    // 检查是否有任何新数据到达，若全无则跳过发布
-    if (!has_hp_data_ && !has_ammo_data_ && !has_field_data_ && !has_buff_data_) {
-        return;
-    }
-
+    // 始终发布（无新数据时填充0xFF/0xFFFF/0xFFFFFFFF）
     radar_ally_combined_pub_->publish(combined_data);
+}
 
-    // 发布后清零缓存，等待下一轮数据到达
+void DecisionNode::clearRadarAllyCombinedData()
+{
+    // 清零缓存，等待下一轮数据到达（2Hz）
     latest_hp_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp();
     latest_ammo_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo();
     latest_field_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus();
