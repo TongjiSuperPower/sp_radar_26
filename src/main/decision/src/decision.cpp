@@ -29,8 +29,6 @@ DecisionNode::DecisionNode() : Node("decision_node")
         std::chrono::milliseconds(350), std::bind(&DecisionNode::pubCustomInfo, this)); // 3Hz
     combined_data_build_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(1000), std::bind(&DecisionNode::buildCombinedData, this)); // 3Hz
-    radar_ally_combined_clear_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(500), std::bind(&DecisionNode::clearRadarAllyCombinedData, this)); // 2Hz
     game_status_sub_ = this->create_subscription<radar_msgs::msg::GameStatus>(
         "/game_status", 10, std::bind(&DecisionNode::gameStatusCallback, this, std::placeholders::_1));
     game_robot_hp_sub_ = this->create_subscription<radar_msgs::msg::GameRobotHP>(
@@ -569,15 +567,8 @@ void DecisionNode::buildCombinedData()
         base.receiver_id = i;
         combined_data_queue_.push_back(base);
     }
-}
 
-void DecisionNode::clearRadarAllyCombinedData()
-{
-    // 清零缓存，等待下一轮数据到达（2Hz）
-    latest_hp_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A02RobotHp();
-    latest_ammo_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A03RobotAmmo();
-    latest_field_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A04FieldStatus();
-    latest_buff_data_ = radar_parse_em_wave::msg::RadarParseEmWave0A05RobotBuff();
+    // 构建完成后清除标志，等待下一轮数据
     has_hp_data_ = false;
     has_ammo_data_ = false;
     has_field_data_ = false;

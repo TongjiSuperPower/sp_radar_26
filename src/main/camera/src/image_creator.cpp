@@ -6,7 +6,7 @@ ImageCreator::ImageCreator() : Node("image_creator_node")
     input_ = config["input"].as<int>();
     RCLCPP_INFO(this->get_logger(), "ImageCreator node initialized");
     rclcpp::QoS qos_profile(1);
-    qos_profile.best_effort();
+    // qos_profile.best_effort();
     compressed_publisher_ = this->create_publisher<sensor_msgs::msg::CompressedImage>("camera/image_compressed", qos_profile); //maybe
     auto needed_file_ = std::make_unique<std::string>();    
     
@@ -14,7 +14,7 @@ ImageCreator::ImageCreator() : Node("image_creator_node")
         *needed_file_ = config["camera_config_file"].as<std::string>();
         camera_ = std::make_unique<io::Camera>(*needed_file_);
         camera_timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(24), std::bind(&ImageCreator::cameraCallback, this)); 
+            std::chrono::milliseconds(50), std::bind(&ImageCreator::cameraCallback, this)); 
     } 
     else if (input_ == 1) {
         *needed_file_ = config["video_path"].as<std::string>();
