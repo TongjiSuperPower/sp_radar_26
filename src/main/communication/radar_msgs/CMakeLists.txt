@@ -38,6 +38,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RadarAllyCombinedData.msg"
   "msg/CombinedData.msg"
   "msg/DartWarningCmd.msg"
+  "msg/AerialCounteredCmd.msg"
   "msg/InteractiveDataCmd.msg"
 
   DEPENDENCIES std_msgs sensor_msgs

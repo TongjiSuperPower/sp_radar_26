@@ -1,4 +1,5 @@
 # 0x020C
 std_msgs/Header header
 
-uint8 mark_progress
+uint16 mark_progress
+uint8 aerial_countered

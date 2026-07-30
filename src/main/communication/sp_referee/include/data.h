@@ -206,8 +206,12 @@ namespace sp_referee
     } __packed GroundRobotPosition; // 0X020B
 
     typedef struct
-    { 
-        uint8_t mark_progress_; 
+    {
+        uint16_t mark_progress_ : 12;              // bits 0-11: 标记进度
+        uint16_t opponent_aerial_aiming_ : 1;      // bit 12: 对方无人机瞄准情况
+        uint16_t opponent_aerial_countered_ : 1;   // bit 13: 对方无人机被反制状态
+        uint16_t ally_aerial_aiming_ : 1;          // bit 14: 己方无人机瞄准情况
+        uint16_t ally_aerial_countered_ : 1;       // bit 15: 己方无人机被反制状态
     } __packed RadarMarkData; // 0X020C
 
     typedef struct
@@ -477,4 +481,10 @@ namespace sp_referee
         uint8_t infantry4_status_;
         uint8_t sentry_status_;
     }__packed RadarAllyCombinedCmd; // 0x0212 合并0x0A02~0x0A05全部数据
+
+    typedef struct
+    {
+        RobotInteractionDataHeader robot_interaction_data_header_;
+        uint8_t aerial_countered_;
+    }__packed RadarAerialCounteredCmd; // 0x0213 对方空中机器人被反制状态
 }

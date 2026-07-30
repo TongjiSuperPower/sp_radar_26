@@ -27,6 +27,7 @@
 #include "radar_msgs/msg/radar_ally_combined_data.hpp"
 #include "radar_msgs/msg/combined_data.hpp"
 #include "radar_msgs/msg/dart_warning_cmd.hpp"
+#include "radar_msgs/msg/aerial_countered_cmd.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a02_robot_hp.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a03_robot_ammo.hpp"
 #include "radar_parse_em_wave/msg/radar_parse_em_wave0_a04_field_status.hpp"
@@ -159,12 +160,13 @@ private:
     rclcpp::Publisher<radar_msgs::msg::RadarSentryPositionCmd>::SharedPtr radar_sentry_position_cmd_pub_;
     rclcpp::Publisher<radar_msgs::msg::CombinedData>::SharedPtr combined_data_pub_;
     rclcpp::Publisher<radar_msgs::msg::DartWarningCmd>::SharedPtr dart_warning_cmd_pub_;
+    rclcpp::Publisher<radar_msgs::msg::AerialCounteredCmd>::SharedPtr aerial_countered_cmd_pub_;
     
     rclcpp::Subscription<radar_msgs::msg::GameStatus>::SharedPtr game_status_sub_;
     rclcpp::Subscription<radar_msgs::msg::GameRobotHP>::SharedPtr game_robot_hp_sub_;
     rclcpp::Subscription<radar_msgs::msg::EventData>::SharedPtr event_data_sub_;
     rclcpp::Subscription<radar_msgs::msg::RobotStatus>::SharedPtr robot_status_sub_;
-    // rclcpp::Subscription<radar_msgs::msg::RadarMarkData>::SharedPtr radar_mark_data_sub_;
+    rclcpp::Subscription<radar_msgs::msg::RadarMarkData>::SharedPtr radar_mark_data_sub_;
     rclcpp::Subscription<radar_msgs::msg::RadarInfo>::SharedPtr radar_info_sub_;
     rclcpp::Subscription<radar_msgs::msg::Cars>::SharedPtr cars_sub_;
     // rclcpp::Subscription<radar_msgs::msg::MapRobotData>::SharedPtr map_robot_data_mono_sub_;
@@ -208,11 +210,13 @@ private:
     std::deque<radar_msgs::msg::CombinedData> combined_data_queue_;
     std::deque<radar_msgs::msg::RadarSentryPositionCmd> sentry_position_queue_;
     std::deque<radar_msgs::msg::DartWarningCmd> dart_warning_queue_;
+    std::deque<radar_msgs::msg::AerialCounteredCmd> aerial_countered_queue_;
 
     void gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPtr &msg);
     void gameRobotHpCallback(const radar_msgs::msg::GameRobotHP::ConstPtr &msg);
     void eventDataCallback(const radar_msgs::msg::EventData::ConstPtr &msg);
     void robotStatusCallback(const radar_msgs::msg::RobotStatus::ConstPtr &msg);
+    void radarMarkDataCallback(const radar_msgs::msg::RadarMarkData::ConstPtr &msg);
     void radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr &msg);
     void CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg);
     void secretKeyCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A06InterferenceKey::ConstPtr &msg);

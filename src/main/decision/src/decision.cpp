@@ -20,6 +20,7 @@ DecisionNode::DecisionNode() : Node("decision_node")
     radar_sentry_position_cmd_pub_ = this->create_publisher<radar_msgs::msg::RadarSentryPositionCmd>("/radar_sentry_position_cmd", 1);
     combined_data_pub_ = this->create_publisher<radar_msgs::msg::CombinedData>("/combined_data", 10);
     dart_warning_cmd_pub_ = this->create_publisher<radar_msgs::msg::DartWarningCmd>("/dart_warning_cmd", 1);
+    aerial_countered_cmd_pub_ = this->create_publisher<radar_msgs::msg::AerialCounteredCmd>("/aerial_countered_cmd", 1);
 
     map_robot_data_pub_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(200), std::bind(&DecisionNode::pubMapRobotData, this));   // 5Hz
@@ -39,6 +40,8 @@ DecisionNode::DecisionNode() : Node("decision_node")
         "/robot_status", 10, std::bind(&DecisionNode::robotStatusCallback, this, std::placeholders::_1));
     radar_info_sub_ = this->create_subscription<radar_msgs::msg::RadarInfo>(
         "/radar_info", 10, std::bind(&DecisionNode::radarInfoCallback, this, std::placeholders::_1));
+    radar_mark_data_sub_ = this->create_subscription<radar_msgs::msg::RadarMarkData>(
+        "/radar_mark_data", 10, std::bind(&DecisionNode::radarMarkDataCallback, this, std::placeholders::_1));
     cars_sub_ = this->create_subscription<radar_msgs::msg::Cars>(
         "/map_both_data_pc", 10, std::bind(&DecisionNode::CarsCallback, this, std::placeholders::_1));
     secret_key_sub = this->create_subscription<radar_parse_em_wave::msg::RadarParseEmWave0A06InterferenceKey>(
@@ -99,7 +102,13 @@ void DecisionNode::pubRadarCmd()
         dart_warning_queue_.pop_front();
         dart_warning_cmd_pub_->publish(cmd);
     }
-    // Priority 4: 0x0212 combined data (data + routing together)
+    // Priority 4: 0x0213 aerial countered (优先于0x0212)
+    else if (!aerial_countered_queue_.empty()) {
+        auto cmd = aerial_countered_queue_.front();
+        aerial_countered_queue_.pop_front();
+        aerial_countered_cmd_pub_->publish(cmd);
+    }
+    // Priority 5: 0x0212 combined data (data + routing together)
     else if (!combined_data_queue_.empty()) {
         auto cmd = combined_data_queue_.front();
         combined_data_queue_.pop_front();
@@ -280,9 +289,26 @@ void DecisionNode::radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr 
 
     // Publish DemodConfig with team color and interference level
     radar_parse_em_wave::msg::RadarParseEmWaveDemodConfig demod_config;
-    demod_config.team = robot_color_;   
+    demod_config.team = robot_color_;
     demod_config.interference_level = radar_info_ref_.encryption_level;
     radar_demod_config_pub_->publish(demod_config);
+}
+
+void DecisionNode::radarMarkDataCallback(const radar_msgs::msg::RadarMarkData::ConstPtr &msg)
+{
+    RCLCPP_INFO(this->get_logger(), "RadarMarkData received: mark_progress=%d, aerial_countered=%d",
+                msg->mark_progress, msg->aerial_countered);
+
+    // 向所有己方机器人发送对方空中机器人被反制状态（0x0213）
+    int base_id = (robot_id_ >= 100) ? BLUE_HERO : RED_HERO;
+    for (int i = base_id; i < base_id + 7; ++i)
+    {
+        if (i == base_id + 4) continue; // skip inf5
+        radar_msgs::msg::AerialCounteredCmd cmd;
+        cmd.aerial_countered = msg->aerial_countered;
+        cmd.receiver_id = i;
+        aerial_countered_queue_.push_back(cmd);
+    }
 }
 
 void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)

@@ -54,6 +54,7 @@ namespace sp_referee
         RADAR_ENEMY_DART_WARNING_CMD = 0x0210,
         RADAR_SENTRY_POSITION_CMD = 0x0211,
         RADAR_ALLY_COMBINED_CMD = 0x0212, // 合并0x0A02~0x0A05全部数据
+        RADAR_AERIAL_COUNTERED_CMD = 0x0213, // 对方空中机器人被反制状态
     } RobotInteractiveEDataCmdId;
 
     enum

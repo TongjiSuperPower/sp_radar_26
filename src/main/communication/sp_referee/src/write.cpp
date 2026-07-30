@@ -142,6 +142,18 @@ namespace sp_referee
                     pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
                     break;
                 }
+                case sp_referee::RADAR_AERIAL_COUNTERED_CMD: // 0x0213 对方空中机器人被反制状态
+                {
+                    data_len = static_cast<int>(sizeof(sp_referee::RadarAerialCounteredCmd));
+                    frame_len = frame_header_length_ + cmd_id_length_ + data_len + frame_tail_length_;
+                    sp_referee::RadarAerialCounteredCmd cmd;
+                    cmd.robot_interaction_data_header_.data_cmd_id_ = sp_referee::RADAR_AERIAL_COUNTERED_CMD;
+                    cmd.robot_interaction_data_header_.sender_id_ = robot_info_.robot_id_;
+                    cmd.robot_interaction_data_header_.receiver_id_ = receiver_id;
+                    cmd.aerial_countered_ = radar_aerial_countered_ref_.aerial_countered;
+                    pack(reinterpret_cast<uint8_t *>(&tx_buffer_), reinterpret_cast<uint8_t *>(&cmd), sp_referee::ROBOT_INTERACTIVE_DATA_CMD, data_len);
+                    break;
+                }
                 default:
                     RCLCPP_WARN(rclcpp::get_logger("Referee"), "Unknown child_cmd for radar: 0x%04X", child_cmd);
                     break;

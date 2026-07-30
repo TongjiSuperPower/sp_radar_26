@@ -55,6 +55,8 @@ namespace sp_referee
             "/combined_data", 10, std::bind(&Referee::combinedDataCallback, this, std::placeholders::_1));
         dart_warning_cmd_sub_ = this->create_subscription<radar_msgs::msg::DartWarningCmd>(
             "/dart_warning_cmd", 10, std::bind(&Referee::dartWarningCmdCallback, this, std::placeholders::_1));
+        aerial_countered_cmd_sub_ = this->create_subscription<radar_msgs::msg::AerialCounteredCmd>(
+            "/aerial_countered_cmd", 10, std::bind(&Referee::aerialCounteredCmdCallback, this, std::placeholders::_1));
 
         RCLCPP_INFO(this->get_logger(), "Referee node has started");
 
@@ -120,6 +122,13 @@ namespace sp_referee
         // 数据+路由已合并，缓存数据并直接触发串口写入
         radar_enemy_dart_warning_ref_.data = msg->dart_gate_status;
         write(sp_referee::ROBOT_INTERACTIVE_DATA_CMD, sp_referee::RADAR_ENEMY_DART_WARNING_CMD, msg->receiver_id);
+    }
+
+    void Referee::aerialCounteredCmdCallback(const radar_msgs::msg::AerialCounteredCmd::ConstPtr &msg)
+    {
+        // 数据+路由已合并，缓存数据并直接触发串口写入
+        radar_aerial_countered_ref_ = *msg;
+        write(sp_referee::ROBOT_INTERACTIVE_DATA_CMD, sp_referee::RADAR_AERIAL_COUNTERED_CMD, msg->receiver_id);
     }
 
     void Referee::combinedDataCallback(const radar_msgs::msg::CombinedData::ConstPtr &msg)

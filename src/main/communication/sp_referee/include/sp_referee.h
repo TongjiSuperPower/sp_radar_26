@@ -28,6 +28,7 @@
 #include "radar_msgs/msg/radar_ally_combined_data.hpp"
 #include "radar_msgs/msg/combined_data.hpp"
 #include "radar_msgs/msg/dart_warning_cmd.hpp"
+#include "radar_msgs/msg/aerial_countered_cmd.hpp"
 #include <std_msgs/msg/int8.hpp>
 
 namespace sp_referee
@@ -69,6 +70,7 @@ namespace sp_referee
             void radarSentryPositionCmdCallback(const radar_msgs::msg::RadarSentryPositionCmd::ConstPtr &msg);
             void combinedDataCallback(const radar_msgs::msg::CombinedData::ConstPtr &msg);
             void dartWarningCmdCallback(const radar_msgs::msg::DartWarningCmd::ConstPtr &msg);
+            void aerialCounteredCmdCallback(const radar_msgs::msg::AerialCounteredCmd::ConstPtr &msg);
 
             // rclcpp::Logger logger_;
             serial::Serial serial_;
@@ -105,6 +107,7 @@ namespace sp_referee
             rclcpp::Subscription<radar_msgs::msg::RadarSentryPositionCmd>::SharedPtr radar_sentry_position_cmd_sub_;
             rclcpp::Subscription<radar_msgs::msg::CombinedData>::SharedPtr combined_data_sub_;
             rclcpp::Subscription<radar_msgs::msg::DartWarningCmd>::SharedPtr dart_warning_cmd_sub_;
+    rclcpp::Subscription<radar_msgs::msg::AerialCounteredCmd>::SharedPtr aerial_countered_cmd_sub_;
 
             // ros::Subscriber manipulator_cmd_sub_;
             // sp_common::ManipulatorCmd manipulator_cmd_;
@@ -117,6 +120,7 @@ namespace sp_referee
             radar_msgs::msg::RadarSentryPositionCmd radar_sentry_position_cmd_ref_;
             std_msgs::msg::Int8 radar_enemy_dart_warning_ref_;
             radar_msgs::msg::RadarAllyCombinedData radar_ally_combined_ref_;
+            radar_msgs::msg::AerialCounteredCmd radar_aerial_countered_ref_;
 
             Eigen::Matrix3d last_matrix{};
             Eigen::Matrix3d current_matrix{};

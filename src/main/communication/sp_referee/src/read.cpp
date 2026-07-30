@@ -160,6 +160,7 @@ namespace sp_referee
                         memcpy(&radar_mark_data_ref, rx_data + 7, sizeof(sp_referee::RadarMarkData));
 
                         radar_mark_data.mark_progress = radar_mark_data_ref.mark_progress_;
+                        radar_mark_data.aerial_countered = radar_mark_data_ref.opponent_aerial_countered_;
 
                         radar_mark_data_pub_->publish(radar_mark_data);
                         break;
