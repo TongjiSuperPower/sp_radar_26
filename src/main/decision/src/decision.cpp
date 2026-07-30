@@ -67,11 +67,6 @@ DecisionNode::~DecisionNode()
 
 void DecisionNode::pubMapRobotData()
 {
-    // 检查是否有新的位置数据到达，若全无则跳过发布
-    if (!has_map_robot_data_) {
-        return;
-    }
-
     radar_msgs::msg::MapRobotData map_robot_data;
     map_robot_data = map_robot_data_pc_ref_;
     map_robot_data.header.stamp = this->now();
@@ -285,7 +280,7 @@ void DecisionNode::radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr 
 
     // Publish DemodConfig with team color and interference level
     radar_parse_em_wave::msg::RadarParseEmWaveDemodConfig demod_config;
-    demod_config.team = robot_color_;
+    demod_config.team = robot_color_;   
     demod_config.interference_level = radar_info_ref_.encryption_level;
     radar_demod_config_pub_->publish(demod_config);
 }
@@ -295,6 +290,8 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
     // 有信息波时先保存对方位置，等正常流程跑完再恢复
     bool has_em = has_em_wave_opponent_position_ &&
                   map_robot_data_pc_ref_.opponent_hero_position_x > 0;
+    RCLCPP_INFO(this->get_logger(), "has_em_wave_opponent_position_ = %d, map_robot_data_pc_ref_.opponent_hero_position_x = %d", has_em_wave_opponent_position_, map_robot_data_pc_ref_.opponent_hero_position_x);
+    RCLCPP_INFO(this->get_logger(), "check has_em %d", has_em);
     uint16_t em_opponent[12];
     if (has_em) {
         memcpy(em_opponent, &map_robot_data_pc_ref_.opponent_hero_position_x, sizeof(em_opponent));
