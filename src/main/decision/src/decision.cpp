@@ -4,6 +4,7 @@ DecisionNode::DecisionNode() : Node("decision_node")
 {
     auto config = YAML::LoadFile("./src/main/decision/config/decision.yaml");
     enemy_ = config["enemy"].as<std::string>();
+    listen_game_status_ = config["listen_game_status"].as<bool>();
 
     robot_id_ = 0;
     last_em_wave_position_time_ = this->now();
@@ -70,6 +71,10 @@ DecisionNode::~DecisionNode()
 
 void DecisionNode::pubMapRobotData()
 {
+    // 若 listen_game_status 为 true，则仅在比赛阶段(4)才发送0x0305，避免赛前堆积
+    if (listen_game_status_ && game_process_ < 2)
+        return;
+
     radar_msgs::msg::MapRobotData map_robot_data;
     map_robot_data = map_robot_data_pc_ref_;
     map_robot_data.header.stamp = this->now();
@@ -469,6 +474,10 @@ void DecisionNode::fieldStatusCallback(const radar_parse_em_wave::msg::RadarPars
 
 void DecisionNode::buildCombinedData()
 {
+    // 若 listen_game_status 为 true，则仅在比赛阶段(4)才发送0x0212，避免赛前堆积
+    if (listen_game_status_ && game_process_ < 2)
+        return;
+
     radar_msgs::msg::CombinedData base;
     base.data_cmd_id = 0x0212;
 

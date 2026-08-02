@@ -199,6 +199,7 @@ private:
 
     TrackerManager tracker_manager_;
     std::string enemy_;
+    bool listen_game_status_;
     tools::Timer timer_;
 
     rclcpp::TimerBase::SharedPtr map_robot_data_pub_timer_;

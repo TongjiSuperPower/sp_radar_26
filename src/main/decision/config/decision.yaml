@@ -1,5 +1,6 @@
 #-------------------------------------attention-----------------------------------------------
 enemy: "blue"
+listen_game_status: false  # if true, 0x0212 combined data only sends when game_process == 4 (match in progress)
 #-------------------------------------attention-----------------------------------------------
 sigma_q_x: 50.0
 sigma_q_y: 50.0
