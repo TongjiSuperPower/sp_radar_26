@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <queue>
 #include <deque>
+#include <bitset>
 
 #include <yaml-cpp/yaml.h>
 
@@ -197,6 +198,10 @@ private:
     bool has_field_data_ = false;
     bool has_buff_data_ = false;
 
+    // 缓存0x0A06干扰密钥最新数据（10Hz定时处理）
+    radar_parse_em_wave::msg::RadarParseEmWave0A06InterferenceKey latest_secret_key_data_;
+    bool has_secret_key_data_ = false;
+
     TrackerManager tracker_manager_;
     std::string enemy_;
     bool listen_game_status_;
@@ -206,6 +211,7 @@ private:
     rclcpp::TimerBase::SharedPtr radar_cmd_pub_timer_;
     rclcpp::TimerBase::SharedPtr custom_info_pub_timer_;
     rclcpp::TimerBase::SharedPtr combined_data_build_timer_;
+    rclcpp::TimerBase::SharedPtr secret_key_process_timer_;
     std::queue<radar_msgs::msg::CustomInfo> custom_info_queue_;
     std::queue<radar_msgs::msg::RadarCmd> radar_cmd_queue_;
     std::deque<radar_msgs::msg::CombinedData> combined_data_queue_;
@@ -213,14 +219,23 @@ private:
     std::deque<radar_msgs::msg::DartWarningCmd> dart_warning_queue_;
     std::deque<radar_msgs::msg::AerialCounteredCmd> aerial_countered_queue_;
 
+    int consecutive_busy_ticks_ = 0;  // pubRadarCmd连续繁忙计数，用于检测队列堆积
+
+    // 缓存最新RadarMarkData，由1Hz定时器processRadarMarkData()统一处理
+    radar_msgs::msg::RadarMarkData latest_radar_mark_data_;
+    bool has_radar_mark_data_ = false;
+    rclcpp::TimerBase::SharedPtr radar_mark_process_timer_;
+
     void gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPtr &msg);
     void gameRobotHpCallback(const radar_msgs::msg::GameRobotHP::ConstPtr &msg);
     void eventDataCallback(const radar_msgs::msg::EventData::ConstPtr &msg);
     void robotStatusCallback(const radar_msgs::msg::RobotStatus::ConstPtr &msg);
     void radarMarkDataCallback(const radar_msgs::msg::RadarMarkData::ConstPtr &msg);
+    void processRadarMarkData();  // 1Hz定时处理缓存的RadarMarkData，写入aerial_countered队列
     void radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr &msg);
     void CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg);
     void secretKeyCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A06InterferenceKey::ConstPtr &msg);
+    void processSecretKey();  // 10Hz定时处理缓存的0x0A06密钥
     void dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg);
     void robotBuffCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A05RobotBuff::ConstPtr &msg);
     void robotPositionCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A01RobotPosition::ConstPtr &msg);

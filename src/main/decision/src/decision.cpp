@@ -31,6 +31,10 @@ DecisionNode::DecisionNode() : Node("decision_node")
         std::chrono::milliseconds(350), std::bind(&DecisionNode::pubCustomInfo, this)); // 3Hz
     combined_data_build_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(1000), std::bind(&DecisionNode::buildCombinedData, this)); // 3Hz
+    secret_key_process_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(100), std::bind(&DecisionNode::processSecretKey, this)); // 10Hz
+    radar_mark_process_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(1000), std::bind(&DecisionNode::processRadarMarkData, this)); // 1Hz
     game_status_sub_ = this->create_subscription<radar_msgs::msg::GameStatus>(
         "/game_status", 10, std::bind(&DecisionNode::gameStatusCallback, this, std::placeholders::_1));
     game_robot_hp_sub_ = this->create_subscription<radar_msgs::msg::GameRobotHP>(
@@ -107,17 +111,38 @@ void DecisionNode::pubRadarCmd()
         dart_warning_queue_.pop_front();
         dart_warning_cmd_pub_->publish(cmd);
     }
-    // Priority 4: 0x0213 aerial countered (优先于0x0212)
+    // Priority 4: 0x0212 combined data (data + routing together)
+    else if (!combined_data_queue_.empty()) {
+        auto cmd = combined_data_queue_.front();
+        combined_data_queue_.pop_front();
+        combined_data_pub_->publish(cmd);
+    }
+    // Priority 5: 0x0213 aerial countered (1Hz生产, 优先于0x0212)
     else if (!aerial_countered_queue_.empty()) {
         auto cmd = aerial_countered_queue_.front();
         aerial_countered_queue_.pop_front();
         aerial_countered_cmd_pub_->publish(cmd);
     }
-    // Priority 5: 0x0212 combined data (data + routing together)
-    else if (!combined_data_queue_.empty()) {
-        auto cmd = combined_data_queue_.front();
-        combined_data_queue_.pop_front();
-        combined_data_pub_->publish(cmd);
+    
+    // 队列堆积检测: 连续繁忙超过86次(~3s @30Hz)时告警
+    const int kBusyThreshold = 86;
+    bool has_data = !radar_cmd_queue_.empty() ||
+                    !sentry_position_queue_.empty() ||
+                    !dart_warning_queue_.empty() ||
+                    !aerial_countered_queue_.empty() ||
+                    !combined_data_queue_.empty();
+    if (has_data) {
+        consecutive_busy_ticks_++;
+        if (consecutive_busy_ticks_ >= kBusyThreshold) {
+            RCLCPP_WARN(this->get_logger(),
+                "Queue congestion detected (>3s continuous): "
+                "radar_cmd=%zu sentry_pos=%zu dart_warn=%zu aerial_ctr=%zu combined=%zu",
+                radar_cmd_queue_.size(), sentry_position_queue_.size(),
+                dart_warning_queue_.size(), aerial_countered_queue_.size(),
+                combined_data_queue_.size());
+        }
+    } else {
+        consecutive_busy_ticks_ = 0;
     }
 }
 
@@ -191,16 +216,11 @@ void DecisionNode::pushRadarCmd(int times, uint8_t password_cmd ,std::string pas
     for (int t = 0; t <= times; t++) {
         radar_msgs::msg::RadarCmd radar_cmd;
         radar_cmd.header.stamp = this->now();
-        radar_cmd_cnt_ = t;
-        radar_cmd.radar_cmd = radar_cmd_cnt_;
+        radar_cmd.radar_cmd = t;
         radar_cmd.password_cmd = password_cmd;
         for (int i = 0; i < 6; ++i) radar_cmd.password[i] = password[i];
         radar_cmd_queue_.push(radar_cmd);
     }
-    std::cout << "Push RadarCmd: radar_cmd=" << static_cast<int>(radar_cmd_cnt_)
-              << ", password_cmd=" << static_cast<int>(password_cmd)
-              << ", password=" << password
-              << std::endl;
 }
 
 void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPtr &msg)
@@ -221,6 +241,7 @@ void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPt
         {
             if(radar_cmd_cnt_ == 0)
             {
+                radar_cmd_cnt_ = 1;
                 pushCustomInfo(DOUBLE_VULNERABLE);
                 pushRadarCmd(1, 0, secret_key_);
             }
@@ -230,6 +251,7 @@ void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPt
         {
             if(radar_cmd_cnt_ <= 1)
             {
+                radar_cmd_cnt_ = 2;
                 pushCustomInfo(DOUBLE_VULNERABLE);
                 pushRadarCmd(2, 0, secret_key_);
             }
@@ -253,22 +275,29 @@ void DecisionNode::eventDataCallback(const radar_msgs::msg::EventData::ConstPtr 
     if (game_type_ != 0x01) // RMUC
         return;
 
+    // RCLCPP_INFO(this->get_logger(),
+    //     "EventData: raw=0x%08X bits=%s | small_energy=%d big_energy=%d central_highland=%d",
+    //     event_data_ref_.event_data,
+    //     std::bitset<32>(event_data_ref_.event_data).to_string().c_str(),
+    //     static_cast<int>(is_small_energy_machine_activated_),
+    //     static_cast<int>(is_big_energy_machine_activated_),
+    //     static_cast<int>(is_someone_in_central_highland_));
     if (radar_info_chance_ >= 1 && !radar_info_istriggered_)
     {
-        std::cout << "EventData received:" << "big_energy_machine=" << static_cast<int>(is_big_energy_machine_activated_)
-                  << std::endl;
         // 大能量机关激活时触发双倍易伤（60s冷却，防止同一次激活重复触发）
         bool cooldown_elapsed = (last_big_energy_trigger_stage_time_ - stage_remain_time_) >= 60;
         if (is_big_energy_machine_activated_ && cooldown_elapsed)
         {
             if (radar_cmd_cnt_ == 0)
             {
+                radar_cmd_cnt_ = 1;
                 pushCustomInfo(DOUBLE_VULNERABLE);
                 pushRadarCmd(1, 0, secret_key_); // 大能量机关被激活，第一次双倍易伤
                 std::cout << "Big energy machine activated, first DOUBLE_VULNERABLE triggered." << std::endl;
             }
             else if (radar_cmd_cnt_ == 1)
             {
+                radar_cmd_cnt_ = 2;
                 pushCustomInfo(DOUBLE_VULNERABLE);
                 pushRadarCmd(2, 0, secret_key_); // 大能量机关被激活，第二次双倍易伤
                 std::cout << "Big energy machine activated, second DOUBLE_VULNERABLE triggered." << std::endl;
@@ -301,8 +330,15 @@ void DecisionNode::radarInfoCallback(const radar_msgs::msg::RadarInfo::ConstPtr 
 
 void DecisionNode::radarMarkDataCallback(const radar_msgs::msg::RadarMarkData::ConstPtr &msg)
 {
-    RCLCPP_INFO(this->get_logger(), "RadarMarkData received: mark_progress=%d, aerial_countered=%d",
-                msg->mark_progress, msg->aerial_countered);
+    // 仅缓存最新RadarMarkData，由1Hz定时器processRadarMarkData()统一处理
+    latest_radar_mark_data_ = *msg;
+    has_radar_mark_data_ = true;
+}
+
+void DecisionNode::processRadarMarkData()
+{
+    // 无新数据时跳过，确保写入队列频率不超过1Hz
+    if (!has_radar_mark_data_) return;
 
     // 向所有己方机器人发送对方空中机器人被反制状态（0x0213）
     int base_id = (robot_id_ >= 100) ? BLUE_HERO : RED_HERO;
@@ -310,10 +346,13 @@ void DecisionNode::radarMarkDataCallback(const radar_msgs::msg::RadarMarkData::C
     {
         if (i == base_id + 4) continue; // skip inf5
         radar_msgs::msg::AerialCounteredCmd cmd;
-        cmd.aerial_countered = msg->aerial_countered;
+        cmd.aerial_countered = latest_radar_mark_data_.aerial_countered;
         cmd.receiver_id = i;
         aerial_countered_queue_.push_back(cmd);
     }
+
+    // 处理完毕清除标志
+    has_radar_mark_data_ = false;
 }
 
 void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
@@ -321,8 +360,7 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
     // 有信息波时先保存对方位置，等正常流程跑完再恢复
     bool has_em = has_em_wave_opponent_position_ &&
                   map_robot_data_pc_ref_.opponent_hero_position_x > 0;
-    RCLCPP_INFO(this->get_logger(), "has_em_wave_opponent_position_ = %d, map_robot_data_pc_ref_.opponent_hero_position_x = %d", has_em_wave_opponent_position_, map_robot_data_pc_ref_.opponent_hero_position_x);
-    RCLCPP_INFO(this->get_logger(), "check has_em %d", has_em);
+
     uint16_t em_opponent[12];
     if (has_em) {
         memcpy(em_opponent, &map_robot_data_pc_ref_.opponent_hero_position_x, sizeof(em_opponent));
@@ -382,11 +420,27 @@ void DecisionNode::CarsCallback(const radar_msgs::msg::Cars::ConstPtr &msg)
 
 void DecisionNode::secretKeyCallback(const radar_parse_em_wave::msg::RadarParseEmWave0A06InterferenceKey::ConstPtr &msg)
 {
+    if (game_process_ == 4 && stage_remain_time_ <= 420){
+        // 仅缓存最新0x0A06消息，由10Hz定时器processSecretKey()统一处理
+        latest_secret_key_data_ = *msg;
+        has_secret_key_data_ = true;
+    }
+}
+
+void DecisionNode::processSecretKey()
+{
+    // 无新数据或加密等级>=3时跳过，确保触发频率不超过10Hz
+    if (!has_secret_key_data_) return;
+
     // 干扰波等级达到3级后不再发送密钥，避免10s冷却期内正确密钥被去重导致永远卡住
     if (radar_info_ref_.encryption_level >= 3) return;
-    secret_key_ = msg->key;
+
+    secret_key_ = latest_secret_key_data_.key;
     RCLCPP_INFO(this->get_logger(), "Received secret key: %s", secret_key_.c_str());
-    pushRadarCmd(radar_cmd_cnt_, 2, secret_key_);
+    pushRadarCmd(0, 2, secret_key_);
+
+    // 处理完毕清除标志，避免同一消息被重复处理
+    has_secret_key_data_ = false;
 }
 
 void DecisionNode::dartWarningCallback(const std_msgs::msg::Int8::ConstPtr &msg)
