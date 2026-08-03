@@ -2,4 +2,4 @@ compare: false  # compare with the minimap from the following video, if false, j
 
 resource_folder_path: "./src/debug_toolbox/minimap/resource"
 
-enemy_color: "blue"
+enemy_color: "red"

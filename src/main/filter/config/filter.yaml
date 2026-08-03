@@ -1,7 +1,7 @@
 use_static_scan: false
 use_outside_filter: true
 
-map_pcd_path: "./src/main/relocalization/pcd/RMUC26.pcd"
+map_pcd_path: "./src/main/relocalization/pcd/RMUC26_national.pcd"
 scan_pcd_path: "./src/main/map_scan/pcd/process_2.pcd"
 
-enemy_color: "blue"
+enemy_color: "red"
