@@ -123,7 +123,7 @@ void DecisionNode::pubRadarCmd()
         aerial_countered_queue_.pop_front();
         aerial_countered_cmd_pub_->publish(cmd);
     }
-    
+
     // 队列堆积检测: 连续繁忙超过86次(~3s @30Hz)时告警
     const int kBusyThreshold = 86;
     bool has_data = !radar_cmd_queue_.empty() ||
@@ -268,19 +268,22 @@ void DecisionNode::gameRobotHpCallback(const radar_msgs::msg::GameRobotHP::Const
 void DecisionNode::eventDataCallback(const radar_msgs::msg::EventData::ConstPtr &msg)
 {
     event_data_ref_ = *msg;
-    is_small_energy_machine_activated_ = (event_data_ref_.event_data >> 3) & 0x01; // 4Byte bit[3]
-    is_big_energy_machine_activated_ = (event_data_ref_.event_data >> 5) & 0x01;   // 4Byte bit[4]
+    // 大小能量机关激活状态为2-bit字段: 01=激活, 00/10/11=未激活
+    uint8_t small_energy_field = (event_data_ref_.event_data >> 3) & 0x03;  // bit[4:3]
+    uint8_t big_energy_field   = (event_data_ref_.event_data >> 5) & 0x03;  // bit[6:5]
+    is_small_energy_machine_activated_ = (small_energy_field == 0x01);
+    is_big_energy_machine_activated_   = (big_energy_field == 0x01);
     is_someone_in_central_highland_ = (event_data_ref_.event_data >> 25) & 0x03;    // 4Byte bit[5:6]
 
     if (game_type_ != 0x01) // RMUC
         return;
 
     // RCLCPP_INFO(this->get_logger(),
-    //     "EventData: raw=0x%08X bits=%s | small_energy=%d big_energy=%d central_highland=%d",
+    //     "EventData: raw=0x%08X bits=%s | small_energy=%d(raw=%d) big_energy=%d(raw=%d) central_highland=%d",
     //     event_data_ref_.event_data,
     //     std::bitset<32>(event_data_ref_.event_data).to_string().c_str(),
-    //     static_cast<int>(is_small_energy_machine_activated_),
-    //     static_cast<int>(is_big_energy_machine_activated_),
+    //     static_cast<int>(is_small_energy_machine_activated_), small_energy_field,
+    //     static_cast<int>(is_big_energy_machine_activated_), big_energy_field,
     //     static_cast<int>(is_someone_in_central_highland_));
     if (radar_info_chance_ >= 1 && !radar_info_istriggered_)
     {
