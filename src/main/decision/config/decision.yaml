@@ -7,5 +7,8 @@ sigma_q_y: 50.0
 sigma_r_x: 0.1
 sigma_r_y: 0.1
 
-# DISTANCE_THRESHOLD: 1.0
+# Mahalanobis gate on the 2-DOF innovation (chi-square value)
+# 4.605 = 90%, 5.991 = 95%, 9.21 = 99%, 13.816 = 99.9%
+mahalanobis_threshold: 9.21
+
 # TIME_THRESHOLD: 1.5

@@ -19,8 +19,8 @@ Tracker::Tracker() :
     sigma_q_y_ = config["sigma_q_y"].as<double>();
     sigma_r_x_ = config["sigma_r_x"].as<double>();
     sigma_r_y_ = config["sigma_r_y"].as<double>();
+    mahalanobis_threshold_ = config["mahalanobis_threshold"].as<double>(mahalanobis_threshold_);
     // TIME_THRESHOLD = config["TIME_THRESHOLD"].as<double>();
-    // DISTANCE_THRESHOLD = config["DISTANCE_THRESHOLD"].as<double>();
 
 }
 
@@ -121,8 +121,27 @@ double Tracker::distance(radar_msgs::msg::Car car)
 
 bool Tracker::is_near(radar_msgs::msg::Car car)
 {
-    double v = sqrt(pow(x(1),2) + pow(x(3),2));
-    return distance(car) < DISTANCE_THRESHOLD + v * dt_;
+    // Gate the measurement with the squared Mahalanobis distance of the
+    // innovation: d^2 = y^T * S^-1 * y, where y = z - H*x and
+    // S = H * P * H^T + R is the innovation covariance.
+    // S is positive definite because R is positive definite.
+    Eigen::VectorXd z(MEASUREMENT_SIZE);
+    z << car.x, car.y;
+
+    Eigen::MatrixXd H = Eigen::MatrixXd::Zero(MEASUREMENT_SIZE, STATE_SIZE);
+    H << 1, 0, 0, 0,
+         0, 0, 1, 0;
+
+    Eigen::MatrixXd R(MEASUREMENT_SIZE, MEASUREMENT_SIZE);
+    R << sigma_r_x_,          0,
+                  0, sigma_r_y_;
+
+    Eigen::VectorXd y = z - H * x;
+    Eigen::MatrixXd S = H * P * H.transpose() + R;
+
+    const double d2 = y.dot(S.ldlt().solve(y));
+
+    return d2 < mahalanobis_threshold_;
 }
 
 bool Tracker::has_lost_track(rclcpp::Time now)
@@ -138,20 +157,58 @@ bool Tracker::has_lost_track(rclcpp::Time now)
 
 radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars::ConstPtr cars)
 {
-    // match tracker with msg
     auto cars_msg = std::make_shared<radar_msgs::msg::Cars>(*cars);
+    const size_t n_trackers = trackers_.size();
+    const size_t n_cars = cars_msg->cars.size();
+
+    // predict all trackers to the current stamp
     for (auto& tracker : trackers_) {
         tracker.predict(cars->header.stamp);
-        auto car = find_nearest_car(tracker, cars_msg);     // find nearest car and remove it from messsage
-        if (tracker.is_near(car)) {
-            tracker.update(car, cars->header.stamp);
+    }
+
+    // build the association cost matrix:
+    // distance for pairs within the gate, a large sentinel otherwise
+    constexpr float kMaxCost = 1e6f;
+    std::vector<std::vector<float>> cost_matrix(n_trackers, std::vector<float>(n_cars, kMaxCost));
+    for (size_t i = 0; i < n_trackers; ++i) {
+        for (size_t j = 0; j < n_cars; ++j) {
+            if (trackers_[i].is_near(cars_msg->cars[j])) {
+                cost_matrix[i][j] = static_cast<float>(trackers_[i].distance(cars_msg->cars[j]));
+            }
         }
     }
 
-    // for every car left, create a new tracker 
-    for (auto& car : cars_msg->cars) {
+    // solve the global optimal assignment (Munkres / Hungarian)
+    std::vector<std::pair<size_t, size_t>> assignments;
+    SecureMat<float>* costs = optimizer_.costs();
+    costs->Resize(n_trackers, n_cars);
+    for (size_t i = 0; i < n_trackers; ++i) {
+        for (size_t j = 0; j < n_cars; ++j) {
+            (*costs)(i, j) = cost_matrix[i][j];
+        }
+    }
+    optimizer_.Minimize(&assignments);
+
+    // apply the valid matched pairs
+    std::vector<bool> car_matched(n_cars, false);
+    for (const auto& [tracker_idx, car_idx] : assignments) {
+        if (tracker_idx >= n_trackers || car_idx >= n_cars) {
+            continue;  // ignore padding cells used to square the matrix
+        }
+        if (!trackers_[tracker_idx].is_near(cars_msg->cars[car_idx])) {
+            continue;
+        }
+        trackers_[tracker_idx].update(cars_msg->cars[car_idx], cars->header.stamp);
+        car_matched[car_idx] = true;
+    }
+
+    // create a new tracker for every unmatched car
+    for (size_t j = 0; j < n_cars; ++j) {
+        if (car_matched[j]) {
+            continue;
+        }
         Tracker new_tracker;
-        new_tracker.update(car, cars->header.stamp);
+        new_tracker.update(cars_msg->cars[j], cars->header.stamp);
         trackers_.push_back(new_tracker);
     }
 
@@ -219,28 +276,4 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     }
 
     return result;
-}
-
-radar_msgs::msg::Car TrackerManager::find_nearest_car(Tracker& tracker, radar_msgs::msg::Cars::SharedPtr cars_msg)
-{
-    radar_msgs::msg::Car nearest_car;
-    double min_distance = DISTANCE_THRESHOLD;  
-
-    int nearest_car_index = -1;
-    for (int i = 0; i < cars_msg->cars.size(); i++) {
-        if (tracker.is_near(cars_msg->cars[i]) && tracker.distance(cars_msg->cars[i]) < min_distance) {
-            min_distance = tracker.distance(cars_msg->cars[i]);
-            nearest_car_index = i;
-        }
-    }
-        
-    if (nearest_car_index == -1) {
-        nearest_car.x = nearest_car.y = 10000.0;  // a meaningless position far from the map
-    }
-    else {
-        nearest_car = cars_msg->cars[nearest_car_index];
-        cars_msg->cars.erase(cars_msg->cars.begin() + nearest_car_index);
-    }
-
-    return nearest_car;
 }
