@@ -237,7 +237,7 @@ void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPt
     if (radar_info_chance_ >= 1 && !radar_info_istriggered_)
     {
         // 比赛结束前3分钟仍未触发，则触发第一次双倍易伤
-        if (stage_remain_time_ < (3 * 60 + 5) && stage_remain_time_ > (2 * 60 + 55)) // 3min05s~2min55s
+        if (stage_remain_time_ < (3 * 60 + 45) && stage_remain_time_ > (3 * 60 + 35)) // 3min05s~2min55s
         {
             if(radar_cmd_cnt_ == 0)
             {
@@ -247,7 +247,7 @@ void DecisionNode::gameStatusCallback(const radar_msgs::msg::GameStatus::ConstPt
             }
         }
         // 比赛结束前2分钟仍未触发，则触发第二次双倍易伤
-        if (stage_remain_time_ < (2 * 60 + 5) && stage_remain_time_ > (1 * 60 + 55)) // 2min05s~1min55s
+        if (stage_remain_time_ < (2 * 60 + 35) && stage_remain_time_ > (2 * 60 + 25)) // 2min05s~1min55s
         {
             if(radar_cmd_cnt_ <= 1)
             {
@@ -285,29 +285,29 @@ void DecisionNode::eventDataCallback(const radar_msgs::msg::EventData::ConstPtr 
     //     static_cast<int>(is_small_energy_machine_activated_), small_energy_field,
     //     static_cast<int>(is_big_energy_machine_activated_), big_energy_field,
     //     static_cast<int>(is_someone_in_central_highland_));
-    if (radar_info_chance_ >= 1 && !radar_info_istriggered_)
-    {
-        // 大能量机关激活时触发双倍易伤（60s冷却，防止同一次激活重复触发）
-        bool cooldown_elapsed = (last_big_energy_trigger_stage_time_ - stage_remain_time_) >= 60;
-        if (is_big_energy_machine_activated_ && cooldown_elapsed)
-        {
-            if (radar_cmd_cnt_ == 0)
-            {
-                radar_cmd_cnt_ = 1;
-                pushCustomInfo(DOUBLE_VULNERABLE);
-                pushRadarCmd(1, 0, secret_key_); // 大能量机关被激活，第一次双倍易伤
-                std::cout << "Big energy machine activated, first DOUBLE_VULNERABLE triggered." << std::endl;
-            }
-            else if (radar_cmd_cnt_ == 1)
-            {
-                radar_cmd_cnt_ = 2;
-                pushCustomInfo(DOUBLE_VULNERABLE);
-                pushRadarCmd(2, 0, secret_key_); // 大能量机关被激活，第二次双倍易伤
-                std::cout << "Big energy machine activated, second DOUBLE_VULNERABLE triggered." << std::endl;
-            }
-            last_big_energy_trigger_stage_time_ = stage_remain_time_;
-        }
-    }
+    // if (radar_info_chance_ >= 1 && !radar_info_istriggered_)
+    // {
+    //     // 大能量机关激活时触发双倍易伤（60s冷却，防止同一次激活重复触发）
+    //     bool cooldown_elapsed = (last_big_energy_trigger_stage_time_ - stage_remain_time_) >= 60;
+    //     if (is_big_energy_machine_activated_ && cooldown_elapsed)
+    //     {
+    //         if (radar_cmd_cnt_ == 0)
+    //         {
+    //             radar_cmd_cnt_ = 1;
+    //             pushCustomInfo(DOUBLE_VULNERABLE);
+    //             pushRadarCmd(1, 0, secret_key_); // 大能量机关被激活，第一次双倍易伤
+    //             std::cout << "Big energy machine activated, first DOUBLE_VULNERABLE triggered." << std::endl;
+    //         }
+    //         else if (radar_cmd_cnt_ == 1)
+    //         {
+    //             radar_cmd_cnt_ = 2;
+    //             pushCustomInfo(DOUBLE_VULNERABLE);
+    //             pushRadarCmd(2, 0, secret_key_); // 大能量机关被激活，第二次双倍易伤
+    //             std::cout << "Big energy machine activated, second DOUBLE_VULNERABLE triggered." << std::endl;
+    //         }
+    //         last_big_energy_trigger_stage_time_ = stage_remain_time_;
+    //     }
+    // }
 }
 
 void DecisionNode::robotStatusCallback(const radar_msgs::msg::RobotStatus::ConstPtr &msg)
