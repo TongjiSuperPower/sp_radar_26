@@ -24,7 +24,7 @@ Tracker::Tracker() :
 
 }
 
-void Tracker::update(radar_msgs::msg::Car car)
+void Tracker::update(radar_msgs::msg::Car car, rclcpp::Time stamp)
 {
     if (init_flag_ == 0) {
         x(0) = car.x;
@@ -59,14 +59,14 @@ void Tracker::update(radar_msgs::msg::Car car)
     // if (car.class_id != -1) {
     //     id_ = car.class_id;
     // }
-    last_update_time_ = rclcpp::Clock().now();
-    last_time_ = rclcpp::Clock().now();
+    last_update_time_ = stamp;
+    last_time_ = stamp;
 }
 
 void Tracker::predict(rclcpp::Time now)
 {
     dt_ = (now.nanoseconds() - last_time_.nanoseconds()) / 1e9;
-    last_time_ = rclcpp::Clock().now();
+    last_time_ = now;
     
     Eigen::MatrixXd Q(STATE_SIZE, STATE_SIZE);
     Q << sigma_q_x_*pow(dt_, 3)/3, sigma_q_x_*pow(dt_, 2)/2, 0, 0,
@@ -125,10 +125,9 @@ bool Tracker::is_near(radar_msgs::msg::Car car)
     return distance(car) < DISTANCE_THRESHOLD + v * dt_;
 }
 
-bool Tracker::has_lost_track()
+bool Tracker::has_lost_track(rclcpp::Time now)
 {
     int flag = 0;
-    rclcpp::Time now = rclcpp::Clock().now();
     if ((now.nanoseconds() - last_update_time_.nanoseconds()) / 1e9 > TIME_THRESHOLD)    
         flag = 1;
     // else if ((x(0) < 1 && x(2) < 1) || (x(0) > 27 && x(2) > 14))  
@@ -145,20 +144,20 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
         tracker.predict(cars->header.stamp);
         auto car = find_nearest_car(tracker, cars_msg);     // find nearest car and remove it from messsage
         if (tracker.is_near(car)) {
-            tracker.update(car);
+            tracker.update(car, cars->header.stamp);
         }
     }
 
     // for every car left, create a new tracker 
     for (auto& car : cars_msg->cars) {
         Tracker new_tracker;
-        new_tracker.update(car);
+        new_tracker.update(car, cars->header.stamp);
         trackers_.push_back(new_tracker);
     }
 
     // delete trackers that lose track
     for (auto tracker = trackers_.begin(); tracker != trackers_.end(); ) {
-        if (tracker->has_lost_track()) {
+        if (tracker->has_lost_track(cars->header.stamp)) {
             tracker = trackers_.erase(tracker);
         }
         else {

@@ -25,13 +25,13 @@ class Tracker : public tools::ExtendedKalmanFilter {
 public:
     Tracker();
     void predict(rclcpp::Time time);
-    void update(radar_msgs::msg::Car car);
+    void update(radar_msgs::msg::Car car, rclcpp::Time stamp);
     std::map<int, double> get_id_and_confidence();
     std::pair<double, double> get_position();
     
     double distance(radar_msgs::msg::Car car);
     bool is_near(radar_msgs::msg::Car car);
-    bool has_lost_track();
+    bool has_lost_track(rclcpp::Time now);
 
 private:
     rclcpp::Time last_update_time_;
