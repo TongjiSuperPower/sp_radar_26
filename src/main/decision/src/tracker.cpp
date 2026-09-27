@@ -13,8 +13,7 @@ namespace
 {
 constexpr const char* kDefaultConfigPath = "./src/main/decision/config/decision.yaml";
 
-// 默认是相对工作空间根目录的路径；可以用 DECISION_TRACKER_CONFIG 覆盖，
-// 这样从别的目录启动也能读到配置，测试也可以自带一份 yaml 而不动比赛配置。
+// 默认路径相对工作空间根目录；DECISION_TRACKER_CONFIG 可覆盖（测试用它自带一份 yaml）。
 std::string config_path()
 {
     const char* env = std::getenv("DECISION_TRACKER_CONFIG");
@@ -44,15 +43,13 @@ Tracker::Tracker() :
     sigma_r_y_ = config["sigma_r_y"].as<double>();
     distance_threshold_ = config["distance_threshold"].as<double>(distance_threshold_);
     immature_penalty_ = config["immature_penalty"].as<double>(immature_penalty_);
-    // yaml 里一直写着 TIME_THRESHOLD，但代码从没读过它（这行被注释掉了），容易误导。
-    // 现在真的读，缺省值就是头文件里的 TIME_THRESHOLD。
     time_threshold_ = config["TIME_THRESHOLD"].as<double>(time_threshold_);
     min_id_evidence_ = config["min_id_evidence"].as<int>(min_id_evidence_);
 }
 
 void Tracker::update(radar_msgs::msg::Car car, rclcpp::Time stamp)
 {
-    observed_this_frame_ = true;  // predict 清掉，这里置位（见 observed_this_frame）
+    observed_this_frame_ = true;  // predict 时清零，这里置位
     if (init_flag_ == 0) {
         x(0) = car.x;
         x(2) = car.y;  
@@ -73,8 +70,7 @@ void Tracker::update(radar_msgs::msg::Car car, rclcpp::Time stamp)
         tools::ExtendedKalmanFilter::update(z, H, R);
     }
 
-    // -1 也入队：它是"这一帧没识别出身份"的有效记录，必须占一个窗口槽位，
-    // 否则一条持续认错的轨迹可以靠"未识别帧不计入"把自己的置信度撑到 1.0。
+    // -1 也占一格：否则持续认错的轨迹能把置信度撑到 1.0。
     history_.push_back(car.class_id);
     if (history_.size() > HISTORY_SIZE) {
         history_.pop_front();
@@ -90,8 +86,7 @@ void Tracker::update(radar_msgs::msg::Car car, rclcpp::Time stamp)
 
 void Tracker::predict(rclcpp::Time now)
 {
-    // 每帧开头所有轨迹都会 predict 一次，正好用来清"这一帧收到观测没有"的标志。
-    // 之后只有被 update 的轨迹会重新置位（见 observed_this_frame）。
+    // 所有轨迹每帧都会 predict，正好用来清这个标志（update 时置位）。
     observed_this_frame_ = false;
     dt_ = (now.nanoseconds() - last_time_.nanoseconds()) / 1e9;
     last_time_ = now;
@@ -127,8 +122,7 @@ std::map<int, double> Tracker::get_id_and_confidence()
         }
     }
 
-    // 分母固定 HISTORY_SIZE（不是 history_.size()，也不是以前那个只增不减的计数器），
-    // 否则一条只匹配过 1 帧的轨迹会拿到置信度 1.0，反而把成熟轨迹的 id 槽位抢走。
+    // 分母固定 HISTORY_SIZE：用 history_.size() 会让只匹配过 1 帧的轨迹也拿到 1.0。
     for (int id = 0; id < ID_KINDS; id++) {
         if (id_count[id] > 0) {
             id_and_confidence.insert(std::make_pair(id, id_count[id] * 1.0 / HISTORY_SIZE));
@@ -146,20 +140,19 @@ int Tracker::dominant_id() const
     }
     std::vector<int> id_count(ID_KINDS, 0);
     for (auto id : history_) {
-        if (id >= 0 && id < ID_KINDS) {  // class_id 越界的观测不参与表决，也挡住了后续越界写
+        if (id >= 0 && id < ID_KINDS) {  // 越界的 class_id 不参与表决
             id_count[id]++;
         }
     }
 
     const int n = static_cast<int>(history_.size());
     for (int id = 0; id < ID_KINDS; id++) {
-        // 两个条件都要满足：多数表决（避免 5/10 这种"一半一半"就算数）+
-        // 最低票数（避免窗口里只有 1 帧观测时 1*2 > 1 直接认领一个 id）。
+        // 多数表决 + 最低票数（防止窗口里只有 1 帧观测就认领一个 id）。
         if (id_count[id] >= min_id_evidence_ && id_count[id] * 2 > n) {
             return id;
         }
     }
-    // 没有多数（包括"多数是 -1"）：这一帧不认领任何身份。
+    // 没有多数（含"多数是 -1"）就不认领身份。
     return -1;
 }
 
@@ -235,8 +228,7 @@ bool Tracker::is_near(radar_msgs::msg::Car car)
 
 double Tracker::association_cost(radar_msgs::msg::Car car)
 {
-    // 成熟度：hits_ 越多越可信。新轨迹的代价被抬高，避免匈牙利为了全局最优
-    // 把车从一条已经收敛的轨迹手里换给刚建出来的重复轨迹。
+    // 抬高未成熟轨迹的代价，免得匈牙利把车从已收敛的轨迹换给刚建出来的重复轨迹。
     const double maturity = std::min(1.0, hits_ * 1.0 / HISTORY_SIZE);
     return distance(car) + immature_penalty_ * (1.0 - maturity);
 }
@@ -255,7 +247,7 @@ bool Tracker::has_lost_track(rclcpp::Time now)
 TrackerManager::TrackerManager()
 {
     auto config = YAML::LoadFile(config_path());
-    // id 归属仲裁和冻结时间的参数，和 debug_ 无关，所以放在 debug 早退之前读
+    // 这些参数和 debug_ 无关，放在 debug 早退之前读
     id_yield_time_ = config["id_yield_time"].as<double>(id_yield_time_);
     blind_hold_time_ = config["blind_hold_time"].as<double>(blind_hold_time_);
     min_hold_evidence_ = config["min_hold_evidence"].as<int>(min_hold_evidence_);
@@ -316,16 +308,14 @@ void TrackerManager::debug_out(const std::string& text)
 radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars::ConstPtr cars)
 {
     auto cars_msg = std::make_shared<radar_msgs::msg::Cars>(*cars);
-    // cars->header.stamp 是 builtin_interfaces::msg::Time，不能直接取 .nanoseconds()
-    // （隐式转换只在当参数传的时候发生）。下面几处要按纳秒相减，统一用这个转换好的。
+    // header.stamp 是 builtin_interfaces::msg::Time，下面要按纳秒相减，先转一次。
     const rclcpp::Time now(cars->header.stamp);
     const size_t n_trackers = trackers_.size();
     const size_t n_cars = cars_msg->cars.size();
     ++stats_.frames;
     stats_.obs += n_cars;
 
-    // 诊断事件缓冲。事件在处理过程中产生，但汇总行要排在最前面，所以先攒着，
-    // 最后一并打印，保证一帧的输出在终端里是连续的一块，方便按帧看。
+    // 事件产生在流程中间，但汇总行要排最前，先攒着最后一并打印。
     std::ostringstream dbg;
 
     // predict all trackers to the current stamp
@@ -334,15 +324,11 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     }
 
     // ---- 关联：分两道跑 ----
-    // 第一道：带 id 的观测 只配 主导 id 相同的轨迹。这是结构保证——只要真轨迹在门内，
-    //        "一辈子没拿到 id 的轨迹"就没有机会抢走它的观测（单帧抢一次就永久上报是
-    //        之前掉追踪的根因，见日志）。
-    // 第二道：剩下的观测（含全部 class_id == -1 的）对剩下的轨迹，沿用原来的
-    //        distance + immature_penalty 代价，保住分类闪断时观测仍能被已有轨迹吸收。
+    // 第一道：带 id 的观测只配 dominant_id 相同的轨迹，没 id 的轨迹抢不走真轨迹的观测。
+    // 第二道：剩下的观测（含全部 class_id == -1）按距离代价配，兜住分类闪断。
     constexpr float kMaxCost = 1e6f;
 
-    // 每条轨迹当前的主导身份（history_ 的多数表决，见 Tracker::dominant_id）。
-    // 关联判据和上报判据必须是同一个函数，否则会出现"关联时认领 X、上报时又不报 X"。
+    // 关联判据和上报判据都用 dominant_id()，否则会"关联时认领 X、上报时又不报 X"。
     std::vector<int> tracker_id(n_trackers, -1);
     std::vector<bool> has_candidate(n_trackers, false);
     for (size_t i = 0; i < n_trackers; ++i) {
@@ -360,8 +346,8 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     std::vector<int> car_owner(n_cars, -1);  // 诊断用：这个观测最终被哪条轨迹拿走
     size_t n_matched = 0;
 
-    // 在 trk_idx × car_idx 的子矩阵上跑一次匈牙利，行/列下标映射回全局下标。
-    // 门外的格子、以及 id_must_match 时身份不符的格子都填哨兵，配上了也在下面丢掉。
+    // 在 trk_idx × car_idx 子矩阵上跑匈牙利，下标映射回全局；门外/身份不符的格子填哨兵，
+    // 配上后在这里丢掉。
     auto solve = [&](const std::vector<size_t>& trk_idx, const std::vector<size_t>& car_idx,
                      bool id_must_match) {
         if (trk_idx.empty() || car_idx.empty()) {
@@ -438,9 +424,7 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     solve(stage2_trk, stage2_car, /*id_must_match=*/false);
     stats_.matched += n_matched;
 
-    // 诊断：区分"观测根本不在门限内"(MISS) 和"在门限内但被别的轨迹抢走"(LOST)。
-    // 这两种情况的修法完全相反，所以必须分清楚。此处 trackers_ 还没做删除，
-    // 下标和上面几张表仍然对得上。
+    // MISS = 观测不在门限内，LOST = 在门限内被抢走，两种修法相反。此处还没删轨迹，下标对齐。
     if (debug_) {
         for (size_t i = 0; i < n_trackers; ++i) {
             if (tracker_matched[i]) {
@@ -495,8 +479,7 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     size_t n_deleted = 0;
     for (auto tracker = trackers_.begin(); tracker != trackers_.end(); ) {
         if (tracker->has_lost_track(cars->header.stamp)) {
-            // 成熟且带着 id 的轨迹被删 = 一台已经在正常上报的机器人彻底没了，
-            // 这是"掉追踪"最直接的代价，单独计数。
+            // 成熟且带 id 的轨迹被删 = 一台在正常上报的机器人彻底没了，单独计数。
             const bool mature_with_id = tracker->hits() >= HISTORY_SIZE &&
                 tracker->best_id_and_confidence().first >= 0;
             if (mature_with_id) {
@@ -532,14 +515,10 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     size_t hold_now = 0;                  // 本帧靠现任者规则上报的 id 数（汇总行用）
     size_t take_now = 0;                  // 本帧发生"僵尸清理"（现任者被夺走）的 id 数
 
-    // 先给每条轨迹算"这一帧想报的 id"。一条轨迹最多提议一个，所以"一条轨迹报两个 id"
-    // （MULTIID）在输出路径上结构性地消失；但"一条轨迹内部混了多个 id"仍要能看到，
-    // 下面照旧用 get_id_and_confidence() 打诊断。
+    // 每条轨迹提议至多一个 id，所以"一条轨迹报两个 id"在输出路径上结构性地消失。
     //
-    // 这里必须用当前的 trackers_.size()，不能用上面那个 n_trackers 快照：那个是在
-    // 预测/关联之前取的，之后的建轨迹（push_back）和删轨迹（erase）都会改变 size。
-    // size 变小以后再按老快照下标访问就是越界读（读到已被析构的元素，它的 history_
-    // 哨兵节点已被释放），日志全开时 heap 复用让这段内存真的不可读，直接段错误。
+    // 必须用当前的 trackers_.size()，不能用上面那个快照：建/删轨迹会改变 size，变小后
+    // 再按老快照下标访问就是越界读（日志全开时真的段错误过）。
     const size_t n_out = trackers_.size();
     std::vector<int> proposal(n_out, -1);
     for (size_t i = 0; i < n_out; ++i) {
@@ -548,12 +527,9 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
             proposal[i] = dom;
             continue;
         }
-        // 多数表决没过（窗口被 -1 填满了）。只要它是某个 id 的现任者就继续替它报：
-        // 位置每帧都在被观测更新，身份沿用上一次确认的 —— 这就是"只要还能持续追踪就
-        // 一直维护该 id"。真车装甲板几十年看不见（实测最长 41.4s）也不会掉 id。
-        //
-        // 代价：无标签期间的轨迹对穿交换会粘住 id，粘到轨迹被删为止。带标签的交换
-        // 仍然自愈——窗口被新 id 填满后 dominant_id() 就是新 id 了，旧 id 自然释放。
+        // 多数表决没过（窗口被 -1 填满）。只要它还是某个 id 的现任者就继续替它报：
+        // 位置每帧都在被更新，身份沿用上次确认的 —— 持续追踪期间 id 就不会掉。
+        // 代价：无标签期间的轨迹对穿会粘住 id，粘到轨迹被删。
         for (int id = 0; id < ID_KINDS; ++id) {
             if (id_owner_[id] == trackers_[i].track_id()) {
                 proposal[i] = id;
@@ -569,9 +545,8 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
         }
     }
 
-    // 没选上现任时，两条候选谁更应该拿这个 id：置信度 -> hits -> track_id（升序）。
-    // 最后一级 track_id 必须有：否则完全打平时结果取决于 trackers_ 的遍历顺序，
-    // 而 erase 会改变顺序（日志里 id=9 在 trk 86/64 之间反复跳就是这个原因）。
+    // 候选优先级：置信度 -> hits -> track_id（升序）。最后一级必须有，否则打平时结果取决于
+    // 遍历顺序，而 erase 会改变顺序（id 会在两条轨迹间反复跳）。
     auto better = [&](size_t a, size_t b) {
         const double ca = trackers_[a].best_id_and_confidence().second;
         const double cb = trackers_[b].best_id_and_confidence().second;
@@ -589,9 +564,8 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
             continue;  // 这一帧没有轨迹能报这个 id（IDGONE 会在下面的诊断里出现）
         }
 
-        // 现任者在不在。必须在**所有**轨迹里找，不能只在候选里找：现任者的票数掉到
-        // 多数门槛以下时它就不是候选了，而那正是下面"持有"规则要兜住的情况
-        // （只在候选里找的话，这种帧会被当成"没有现任"，id 直接白送给旁边认领的人）。
+        // 现任者要在所有轨迹里找，不能只在候选里找：票数掉到门槛以下时它就不是候选了，
+        // 而那正是下面"持有"要兜住的情况（否则这种帧会被当成没有现任，id 白送出去）。
         int incumbent = -1;
         if (id_owner_[id] != 0) {
             for (size_t idx = 0; idx < trackers_.size(); ++idx) {
@@ -602,34 +576,19 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
             }
         }
 
-        // 现任者距上次成功关联超过 id_yield_time 就让位，不再参与选举。默认
-        // id_yield_time = 1.5（= TIME_THRESHOLD），也就是轨迹会先被删掉，所以这一条
-        // 实际不生效 —— 归属一直跟着轨迹活。调小它就回到"跑丢一段时间就把 id 让给
-        // 别的轨迹"的老行为。
+        // 超过 id_yield_time 没关联成功就让位。默认 1.5 = TIME_THRESHOLD，轨迹会先被删，
+        // 所以这条实际不生效（归属跟着轨迹活）；调小即回到"跑丢一段时间就换人"。
         const bool incumbent_yields = incumbent >= 0 &&
             trackers_[incumbent].time_since_update(cars->header.stamp) > id_yield_time_;
 
-        // 现任者通吃：只要它还新鲜、窗口里还认得出这个 id，就是它，不比置信度、也不参选。
-        //
-        // "还认得出"这一条是必须的。位置被车体观测更新（coast=0、hits 每帧涨）不等于
-        // 身份有证据：场地中央的一个假目标会被车体网络持续检出（观测都是 class_id=-1），
-        // 窗口里的票数一路衰减到 0，但只要它的轨迹还活着，旧规则就让它永远占着 id ——
-        // 实测一局里蓝3 被按在场地中央 38s（conf 全程 0），真的蓝3 带着满票申请了 38s
-        // 一次都没抢回来；id 7 上同样的事持续了 100s 以上。
-        // 所以：票数 >= min_hold_evidence_（默认 1，即最近 1s 内至少有一次确认识别到
-        // 这个 id）才通吃；0 票 = 身份完全没有证据，这时只要有别的轨迹能正经认领
-        // （多数表决 + min_id_evidence），就该让位。没有任何人认领时它照样继续报，
-        // 所以"装甲板看不见但车体还在被跟踪"的 id 维护不受影响。
-        //
-        // 为什么不干脆比置信度高低："持续性的同 id 误识别"会把自己的票数也攒到 1.0，
-        // 比置信度分不出真假。现任者优先（而不是最高票者优先）保证不那么抖；
-        // 真正能挡住这种误识别的只有上游 class_confidence（当前仍只记录不拦截）。
+        // 现任者通吃：新鲜 + 窗口里还认得出这个 id（票数 >= min_hold_evidence，默认 1）。
+        // "位置在被观测更新"不等于"身份有证据"：场地中央的假目标会被车体网络持续检出
+        // （观测全是 -1），票数衰减到 0 却一直占着 id，真车带满票也抢不回来 —— 零票才让位；
+        // 没人认领时它照样继续报。不比置信度：持续性误识别也会把票数攒到 1.0。
         const int incumbent_evidence = incumbent >= 0
             ? trackers_[incumbent].id_count_in_history(id) : 0;
-        // proposal[incumbent] == id 这一条保证"一条轨迹一帧最多报一个 id"：现任者的
-        // 窗口被别的 id 占成多数时，它这一帧认领的是那个 id（proposal 跟着 majority
-        // 走），此时不能再让它顺手把自己名下的旧 id 也报了 —— 那会在输出里出现两条
-        // 位置完全相同、id 不同的记录。这时旧 id 交给下面的冻结补报兜着。
+        // proposal[incumbent] == id 保证"一条轨迹一帧最多报一个 id"：现任者窗口被别的 id
+        // 占成多数时不能再顺手报旧 id（否则同位置出两条记录），旧 id 交给冻结补报。
         const bool incumbent_holds = incumbent >= 0 && !incumbent_yields &&
             incumbent_evidence >= min_hold_evidence_ &&
             proposal[incumbent] == id;
@@ -643,12 +602,8 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
                 if (static_cast<int>(idx) == incumbent) {
                     continue;  // 让位者不参选，否则它靠历史置信度又把自己选回来了
                 }
-                // 挑战者必须**这一帧真的收到了观测**，不能靠窗口里的旧票上位。
-                // 一条已经跑丢、正等着被删的轨迹窗口里还留着 10 帧旧票（conf=1），
-                // 它够得着"认领"的门槛却一帧都没关联上：实测（测试里的持续性误识别）
-                // 误识别消失后它的轨迹还苟活 1.5s，正好趁真车零证据的那几帧把 id 抢过去，
-                // 然后自己被删 —— id 就被冻结在一个已经死掉的位置上了，一直发到真车
-                // 重新认出自己的 id 为止（这局里是 4 秒）。
+                // 挑战者必须这一帧真的收到观测，不能靠窗口里的旧票上位：一条跑丢等着被删的
+                // 轨迹窗口里还留着 10 帧旧票，抢到 id 后自己就被删，id 冻结在死掉的位置上。
                 if (!trackers_[idx].observed_this_frame()) {
                     continue;
                 }
@@ -656,13 +611,8 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
                     winner = static_cast<int>(idx);
                 }
             }
-            // 只有让位者一个候选：没人接就继续报，免得白白多出一个空洞
-            // （下游会把缺失的 id 发成 (0,0)，那比一个滑行位置更糟）。
-            //
-            // 但只有在现任者**这一帧认领的就是这个 id** 时才让它兜底（同上，
-            // proposal[incumbent] == id）。否则"赢家 ∈ 候选者"这个不变式就断了：
-            // 一条窗口已经改口认别的 id 的现任者会顺着这条路把旧 id 也报出去，
-            // 两个 id 落在同一个点上。这种情况下旧 id 交给冻结补报。
+            // 只有让位者一个候选时继续报，免得白出一个空洞（下游拿到缺失的 id 会发 (0,0)）。
+            // 同样要求 proposal[incumbent] == id，否则"赢家 ∈ 候选者"这个不变式会断。
             if (winner < 0 && incumbent >= 0 && proposal[incumbent] == id) {
                 winner = incumbent;
             }
@@ -671,9 +621,7 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
             continue;
         }
 
-        // 现任者被抢走了：它是个"活着的僵尸"——轨迹还在被车体观测更新，但身份已经
-        // 零证据。这是这次修正的核心事件，必须能被数出来，否则无法判断它是在按预期
-        // 工作还是在乱换主。
+        // 现任者被抢走：它还在被车体观测更新，但身份已零证据。这个事件要能数出来。
         if (incumbent >= 0 && winner != incumbent) {
             ++stats_.idtake;
             ++take_now;
@@ -694,8 +642,7 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
             }
         }
 
-        // 这一帧是靠现任者规则报的（多数表决已经失败）—— 这是"持续追踪就一直维护 id"
-        // 的可观测量。没有它这个新行为就无法证伪。
+        // 这一帧靠现任者规则上报（多数表决已失败），HOLD 计数的依据。
         const bool by_hold = trackers_[winner].dominant_id() < 0;
 
         if (candidates[id].size() > 1) {
@@ -729,9 +676,7 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
         car.y = trackers_[winner].get_position().second;
         car.class_id = id;
         id_car.insert_or_assign(id, car);
-        // 上报的置信度是这个 id 在窗口里的票数占比。用 id_count_in_history 而不是
-        // best_id_and_confidence，是为了让"现任者靠持有规则保住 id"的那种帧也报出
-        // 它真实的票数，而不是多数表决失败时的 0。
+        // 用 id_count_in_history 而不是 best_id_and_confidence：靠持有保住的帧也报真实票数。
         id_confidence[id] = trackers_[winner].id_count_in_history(id) * 1.0 / HISTORY_SIZE;
         id_to_track[id] = trackers_[winner].track_id();
         id_owner_[id] = trackers_[winner].track_id();
@@ -745,8 +690,7 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
             id_label_stamp_[id] = cars->header.stamp;
         }
         else {
-            // 多数表决已经失败，靠现任者规则继续替它报。这正是"装甲板看不见但车体
-            // 还认得出"时维持 id 的那条路，必须能在日志里被数出来。
+            // 多数表决已失败，靠现任者规则维持 id —— 装甲板看不见但车体跟得住的那条路。
             ++stats_.idhold;
             ++hold_now;
             if (debug_) {
@@ -765,17 +709,10 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     }
 
     // ---- 盲区冻结补报 ----
-    // 某个 id 的轨迹被删（1.5s 没有观测）之后，如果没有别的活轨迹能报这个 id，就继续
-    // 把最后一次上报的位置发出去。冻结、不预测也不外推：位置里带着 TIME_THRESHOLD 的
-    // 滑行误差（快车最多 4~5m），但冻结之后这个误差不再增长 —— 这就是"冻结"相对
-    // "继续外推"的全部意义。
-    //
-    // 为什么要补，而不是干脆让它消失：下游 CarsCallback 拿不到的 id 会把坐标写成
-    // (0,0)，而 (0,0) 在赛场坐标系里是个看起来完全正常的坐标，接收方分不出"无数据"。
-    // 宁可发一个带固定偏差的旧位置。
-    //
-    // 冻结多久由 blind_hold_time 决定（-1 = 不设上限，只要该 id 没被重新报出来就一直发）。
-    // id 被真轨迹重新接管时天然停止补报，不需要别的清理。
+    // 某个 id 的轨迹被删（1.5s 无观测）后，没有活轨迹能报它就继续发最后的位置：冻结、
+    // 不外推（带着最多 4~5m 的滑行误差，但不再增长）。补而不是让它消失，是因为下游拿不到
+    // 某个 id 会把坐标写成 (0,0)，而那在赛场坐标系里看着完全正常。
+    // 保留多久由 blind_hold_time 决定（-1 = 不限）；真轨迹回来接管时天然停止补报。
     size_t ghost_now = 0;
     double ghost_age_now = 0.0;
     for (int id = 0; id < ID_KINDS; ++id) {
@@ -793,8 +730,7 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
         car.class_id = id;
         id_car.insert_or_assign(id, car);
         id_confidence[id] = 0.0;
-        // 0 = "冻结"哨兵（轨迹编号从 1 开始）。故意不写 id_owner_[id]：冻结不是归属，
-        // 真轨迹回来时照常走上面的选举把 id 接过去。
+        // 0 = "冻结"哨兵（轨迹编号从 1 开始）；不写 id_owner_，冻结不是归属。
         id_to_track[id] = 0;
         ++stats_.ghost;
         ++ghost_now;
@@ -807,10 +743,8 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
         }
     }
 
-    // 诊断：一条轨迹的历史里混进了多个 class_id，说明它中途抢过别的机器人的观测。
-    // 输出路径已经改成一条轨迹只报一个 id，所以这个数看的是轨迹内部的污染程度，
-    // 它不再直接变成输出。计数无条件做（has_multiple_ids 只扫一遍 10 格窗口），
-    // 只有打印才看 debug_。
+    // 一条轨迹的历史里混进了多个 class_id = 它中途抢过别人的观测。输出路径已经改成一条
+    // 轨迹只报一个 id，所以这个数看的是轨迹内部的污染程度。计数无条件做，打印才看 debug_。
     for (auto& tracker : trackers_) {
         if (!tracker.has_multiple_ids()) {
             continue;
@@ -849,13 +783,8 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     // }
 
 
-    // 诊断：对比上一帧，看每个 id 的归属有没有变化。
-    // IDSW 是这个 id 换了一条轨迹在报（位置会跳）—— 现在它包含 trk N -> 0（活轨迹被删、
-    // 位置由冻结接管）和 trk 0 -> N（真轨迹回来、把冻结位置无缝接过去）两种；
-    // IDNEW 是某个 id 第一次出现在输出里；IDGONE 的含义自从有了冻结补报就变了：
-    // 不再是"这个 id 没有任何轨迹能上报"，而是"连冻结位置都没有了"（轨迹早已被删且
-    // blind_hold_time 过期 / 从没上报过）。所以它应该变得非常稀少。
-    // 计数无条件做（就是一张 ≤12 项的 map），只有打印才看 debug_。
+    // 对比上一帧看每个 id 的归属变化。IDSW 含 trk N -> 0（轨迹被删、冻结接管）和
+    // trk 0 -> N（真轨迹回来接回冻结位置）；IDGONE 现在指"连冻结位置都没了"，应该很稀少。
     for (const auto& [id, track_id] : id_to_track) {
         auto prev = reported_id_to_track_.find(id);
         if (prev == reported_id_to_track_.end()) {
@@ -884,11 +813,9 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
     reported_id_to_track_ = id_to_track;
 
     if (debug_) {
-        // 上游置信度的分布。这一轮只记录、不拦截：先用一局的数据把 min_class_confidence /
-        // min_car_confidence 选出来，再在下一轮启用门槛。
-        //   cls_*：只统计 class_id >= 0 的观测（它们才有资格写进 history_）
-        //   car_*：统计全部观测，用来判断车体得分能不能把"真车体"和"误检框"分开
-        // 分桶而不是只报 min/avg，是因为选阈值要看的是低分那一端的形状。
+        // 上游置信度分布，只记录不拦截：先用一局的数据选 min_class_confidence /
+        // min_car_confidence。cls_* 只统计 class_id >= 0 的观测，car_* 统计全部；
+        // 分桶是因为选阈值要看低分那一端的形状。
         auto bucket_of = [](float c) -> int {
             if (c <= 0.0f) return 0;
             if (c <= 0.3f) return 1;
@@ -924,12 +851,10 @@ radar_msgs::msg::Cars::SharedPtr TrackerManager::callback(radar_msgs::msg::Cars:
               << " del=" << n_deleted
               << " out=" << id_car.size()
               << " hold=" << hold_now
-              // 本帧有多少个 id 的现任者因为零证据被别的轨迹夺走（僵尸清理）。正常情况下
-              // 大部分帧是 0，只在真车从假目标手里拿回 id 的那一帧冒出来。
+              // 本帧被夺走的 id 数（僵尸清理），正常大部分帧是 0。
               << " take=" << take_now
               << " ghost=" << ghost_now
-              // 本帧最陈旧的冻结点有多老。不设上限时这是唯一能一眼看出"赛场上留了多久
-              // 的假点"的数字，也是事后决定要不要给 blind_hold_time 设上限的依据。
+              // 本帧最陈旧的冻结点有多老：判断要不要给 blind_hold_time 设上限的依据。
               << " ghost_max_age=" << ghost_age_now
               << " clsconf_min=" << cls_min
               << " clsconf_avg=" << (cls_n ? cls_sum / cls_n : 0.0)
