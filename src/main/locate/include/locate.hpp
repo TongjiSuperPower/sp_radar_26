@@ -32,6 +32,18 @@
 // const int camera_width = 3072, camera_height = 2048;
 const int record_point_cloud_frame = 3;
 
+// 一个雷达簇中心 + 它命中的相机车体框的分类结果。
+// class_id < 0 表示这个簇没有落在任何车体框里（相机没看到车），此时 confidence 也是 < 0；
+// 另一种 -1 是簇落在框里但装甲板没分类出来，这两种下游无法区分，见 Car.msg 的注释。
+struct CarPoint
+{
+    pcl::PointXYZ point;
+    int class_id = -1;
+    float class_confidence = -1.0f;
+    // 车体检测器得分。用来分辨"真车体但装甲板没认出来"和"压根不是车的误检"，见 Bbox.msg
+    float car_confidence = -1.0f;
+};
+
 class PointcloudLocater : public rclcpp::Node
 {
 public:
@@ -51,8 +63,8 @@ private:
         const geometry_msgs::msg::TransformStamped &transform,
         pcl::PointCloud<pcl::PointXYZ> &transformed_cloud);
 
-    std::vector<std::pair<pcl::PointXYZ, int>> pointclouds_to_image(const pcl::PointCloud<pcl::PointXYZ> &cloud, cv::Mat &img);
-    void locate(std::vector<std::pair<pcl::PointXYZ, int>> points);
+    std::vector<CarPoint> pointclouds_to_image(const pcl::PointCloud<pcl::PointXYZ> &cloud, cv::Mat &img);
+    void locate(std::vector<CarPoint> points);
 
     geometry_msgs::msg::TransformStamped tum_to_transform_stamped(std::vector<double> TUM);
     geometry_msgs::msg::TransformStamped inverse_transform(

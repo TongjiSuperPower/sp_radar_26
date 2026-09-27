@@ -44,6 +44,11 @@ private:
     std::list<int> history_;    // id
     int no_id_count_;
 
+    // 最近一次"有分类结果"的观测的装甲板得分和车体得分，原样往下传，不参与投票。
+    // 决策端要靠它们判断这次身份断言值不值得信，见 Car.msg。默认 -1 = 没有这个信息。
+    float last_class_confidence_ = -1.0f;
+    float last_car_confidence_ = -1.0f;
+
     // refence: Bot-SORT (https://arxiv.org/pdf/2206.14651) 
     float sigma_p = 0.05;
     float sigma_v = 0.00625;

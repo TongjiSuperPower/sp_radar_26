@@ -554,6 +554,8 @@ radar_msgs::msg::CarBbox DetectorManager::detect_once(cv::Mat &image, float elap
         bbox.y_max = r.y + r.height;
         bbox.class_id = -1;
         bbox.class_confidence = -1;
+        // 车体检测器自己的得分。装甲板结果下面才填，这个字段不会被它覆盖。
+        bbox.car_confidence = result.scores[j];
         car_bboxs.bboxs.push_back(bbox);
 
         r &= cv::Rect(0, 0, image.cols, image.rows);
@@ -659,8 +661,10 @@ radar_msgs::msg::CarBbox DetectorManager::detect_armors_on_bboxes(
         bbox.y_min = r.y;
         bbox.x_max = r.x + r.width;
         bbox.y_max = r.y + r.height;
-        bbox.class_id = -1;  
+        bbox.class_id = -1;
         bbox.class_confidence = -1;
+        // 这条路径的框来自点云，没有车体检测得分可用
+        bbox.car_confidence = -1;
         car_bboxs.bboxs.push_back(bbox);
 
         cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);

@@ -42,8 +42,13 @@ radar_msgs::msg::Bbox Tracker::get_bbox()
     bbox.y_min = x(1) - x(3) / 2;
 
     auto [id, confidence] = get_id_and_confidence();
+    (void)confidence;
     bbox.class_id = id;
-    bbox.class_confidence = confidence;
+    // 注意：这里传的是最近一次分类的装甲板得分，不是上面那个投票比例 confidence。
+    // 投票比例是"这条轨迹多确定自己是谁"，装甲板得分是"这次分类本身有多可信"，
+    // 决策端要的是后者（前者它自己用 class_id 的历史就能算）。
+    bbox.class_confidence = last_class_confidence_;
+    bbox.car_confidence = last_car_confidence_;
 
     return bbox;
 }
@@ -108,8 +113,11 @@ void Tracker::update(radar_msgs::msg::Bbox bbox)
         history_.push_back(bbox.class_id);
         if (history_.size() > HISTORY_SIZE)
             history_.pop_front();
+        // 跟着这一次进入历史的观测一起记下来，保证下游看到的置信度和 class_id 是同一次观测的
+        last_class_confidence_ = bbox.class_confidence;
+        last_car_confidence_ = bbox.car_confidence;
     }
-    else 
+    else
         no_id_count_++;
 
     last_update_time_ = rclcpp::Clock().now();

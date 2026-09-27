@@ -218,11 +218,11 @@ void PointcloudLocater::transform_point_cloud(
     RCLCPP_INFO(this->get_logger(), "Transformed %zu points", transformed_cloud.points.size());
 }
 
-std::vector<std::pair<pcl::PointXYZ, int>> PointcloudLocater::pointclouds_to_image(const pcl::PointCloud<pcl::PointXYZ> &cloud, cv::Mat &img)
+std::vector<CarPoint> PointcloudLocater::pointclouds_to_image(const pcl::PointCloud<pcl::PointXYZ> &cloud, cv::Mat &img)
 {
     // 上锁
     std::lock_guard<std::mutex> lock(mtx_);
-    std::vector<std::pair<pcl::PointXYZ, int>> car_points;
+    std::vector<CarPoint> car_points;
     if(camera_time_ == 0) return car_points;
     std::vector<cv::Point3f> obj_points; // 相机坐标系
     std::vector<double> obj_points_features;
@@ -248,14 +248,28 @@ std::vector<std::pair<pcl::PointXYZ, int>> PointcloudLocater::pointclouds_to_ima
         // 时间差<0.2s
         if (delta_time < 200 || debug_flag_) {   // debug用的rosbag，所以雷达和相机时间不一致
             for (unsigned long int i = 0; i < reprojected_points.size(); i++) {
-                int id = -1;
-                for (const auto &bbox : bbox_msg_->bboxs) {                    
-                    if (reprojected_points[i].x > bbox.x_min && reprojected_points[i].x < bbox.x_max && 
-                        reprojected_points[i].y > bbox.y_min && reprojected_points[i].y < bbox.y_max) {                 
-                        id = bbox.class_id;
+                // 命中这个点的框里，取分类得分最高的一个，而不是原来的"最后一个命中的框"。
+                // 两台车挨着的时候，最后一个命中的框很可能是隔壁那台，会把 id 认错。
+                const radar_msgs::msg::Bbox *best_bbox = nullptr;
+                for (const auto &bbox : bbox_msg_->bboxs) {
+                    if (!(reprojected_points[i].x > bbox.x_min && reprojected_points[i].x < bbox.x_max &&
+                          reprojected_points[i].y > bbox.y_min && reprojected_points[i].y < bbox.y_max)) {
+                        continue;
+                    }
+                    // class_confidence 为负表示没分类出来，排在所有真正分类出来的框后面
+                    if (best_bbox == nullptr || bbox.class_confidence > best_bbox->class_confidence) {
+                        best_bbox = &bbox;
                     }
                 }
-                car_points.push_back(std::make_pair(cloud.points[i], id));  // TODO 在目标相遇的时候，只会取最后一个投影到的框
+
+                CarPoint car_point;
+                car_point.point = cloud.points[i];
+                if (best_bbox != nullptr) {
+                    car_point.class_id = best_bbox->class_id;
+                    car_point.class_confidence = best_bbox->class_confidence;
+                    car_point.car_confidence = best_bbox->car_confidence;
+                }
+                car_points.push_back(car_point);
                 std::cout << "point tryouts for locate: " << reprojected_points[i].x << "," << reprojected_points[i].y << std::endl;
                 int colorValue = cv::saturate_cast<int>(obj_points_features[i] / max_distance_ * 255); // 从 0 到 255; // 从 0 到 255
                 try {
@@ -270,7 +284,7 @@ std::vector<std::pair<pcl::PointXYZ, int>> PointcloudLocater::pointclouds_to_ima
     return car_points;                 
 }
 
-void PointcloudLocater::locate(std::vector<std::pair<pcl::PointXYZ, int>> car_centers)
+void PointcloudLocater::locate(std::vector<CarPoint> car_centers)
 {
     //std::lock_guard<std::mutex> lock(mtx_);
 
@@ -302,9 +316,9 @@ void PointcloudLocater::locate(std::vector<std::pair<pcl::PointXYZ, int>> car_ce
 
     for (auto &point_id : car_centers) {
         geometry_msgs::msg::PointStamped car_center_in_camera;
-        car_center_in_camera.point.x = point_id.first.x;
-        car_center_in_camera.point.y = point_id.first.y;
-        car_center_in_camera.point.z = point_id.first.z;
+        car_center_in_camera.point.x = point_id.point.x;
+        car_center_in_camera.point.y = point_id.point.y;
+        car_center_in_camera.point.z = point_id.point.z;
     
         geometry_msgs::msg::PointStamped car_center_in_map, car_center_in_lidar;
         tf2::doTransform(car_center_in_camera, car_center_in_lidar, transform_C2L_);
@@ -313,7 +327,9 @@ void PointcloudLocater::locate(std::vector<std::pair<pcl::PointXYZ, int>> car_ce
         radar_msgs::msg::Car car_center;
         car_center.x = car_center_in_map.point.x;
         car_center.y = car_center_in_map.point.y;
-        car_center.class_id = point_id.second;
+        car_center.class_id = point_id.class_id;
+        car_center.class_confidence = point_id.class_confidence;
+        car_center.car_confidence = point_id.car_confidence;
         new_ground_cars.push_back(car_center);
         map_robot_center.cars.push_back(car_center);
         // map_robot_center.cars.emplace_back(car_center_in_map.point.x, car_center_in_map.point.y, point_id.second);
