@@ -1,0 +1,15 @@
+# tracker_test 专用的配置，形状和 config/decision.yaml 一样但关掉诊断日志，
+# 免得跑测试时往终端刷屏。参数值保持和比赛配置一致，测试才有意义。
+sigma_q_x: 50.0
+sigma_q_y: 50.0
+sigma_r_x: 0.1
+sigma_r_y: 0.1
+distance_threshold: 0.8
+immature_penalty: 0.3
+TIME_THRESHOLD: 1.5
+id_yield_time: 1.5
+blind_hold_time: -1.0
+min_id_evidence: 3
+min_hold_evidence: 1
+debug_tracker: false
+debug_log_path: "/tmp/decision_tracker_test.log"

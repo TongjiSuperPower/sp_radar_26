@@ -46,21 +46,22 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# # test
+# 回归测试：用假数据驱动 TrackerManager，断言 id 不被误识别抢走、
+# 遮挡回归后 id 接得回来、观测爆发后能恢复。colcon test --packages-select decision
+if(BUILD_TESTING)
+  add_executable(tracker_test
+    test/tracker_test.cpp src/tracker.cpp
+  )
+  target_link_libraries(tracker_test tools yaml-cpp)
+  ament_target_dependencies(tracker_test
+    rclcpp
+    radar_msgs
+  )
 
-# add_executable(tracker_test
-#   src/test.cpp src/tracker.cpp
-# )
-# target_link_libraries(tracker_test tools yaml-cpp) 
-# ament_target_dependencies(tracker_test
-#   rclcpp
-#   radar_msgs
-# )
-
-# install(TARGETS
-# tracker_test
-#   DESTINATION lib/${PROJECT_NAME}
-# )
+  add_test(NAME tracker_test
+    COMMAND tracker_test ${CMAKE_CURRENT_SOURCE_DIR}/test/tracker_test.yaml
+  )
+endif()
 
 
 ament_package()
